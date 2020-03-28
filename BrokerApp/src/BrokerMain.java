@@ -10,6 +10,12 @@ public class BrokerMain
                 broker.openServer();
             }
         }.start();
-        broker.init();
+        for(int i = 0; i < broker.getNumbersOfBroker()-1; i++)
+        {
+            broker.setConnectionServerIP();
+            broker.setConnectionPort();
+            broker.init();
+            broker.connectWithBrokers();
+        }
     }
 }
