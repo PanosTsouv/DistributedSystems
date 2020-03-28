@@ -6,8 +6,8 @@ public class Info implements Serializable{
     
     private static final long serialVersionUID = -589233052403477203L;
     
-    private ArrayList<ArrayList<String>> brokersInfo = new ArrayList<>();
-    private HashMap<String,String> artistToBroker = new HashMap<>();
+    private ArrayList<ArrayList<String>> brokersInfo;
+    private HashMap<String,String> artistToBroker;
 
     public Info(ArrayList<ArrayList<String>> brokersInfo, HashMap<String,String> artistToBroker)
     {
