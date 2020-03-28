@@ -8,7 +8,7 @@ public interface Broker extends Node{
 	void acceptConnectionPublisher(ArrayList<String> PN);
 	void acceptConnectionConsumer(ArrayList<String> CN);
 	void notifyPublisher(String message);
-	void pull(ArtistName artistName);
+	void pull(ArtistName artistName, String songName);
 	String getHashBroker();
 	void setHashBroker(String hashBroker);
 	String getBrokerID();
