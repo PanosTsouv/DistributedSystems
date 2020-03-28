@@ -23,6 +23,10 @@ public class ConsumerNode implements Consumer{
     private String consumerPassword;
     private String serverIP;
     private String port;
+    private String connectForFirstTime;
+    private String artistName;
+    private String songName;
+    private Info answer = null;
 
     private ArrayList<String> attributes = new ArrayList<>();
 
@@ -38,26 +42,49 @@ public class ConsumerNode implements Consumer{
         this.consumerPassword = consumerPassword;
         this.serverIP = serverIP;
         this.port = port;
+        this.connectForFirstTime = "true";
 
         attributes.add(this.consumerName);
         attributes.add(this.consumerPassword);
+        attributes.add(this.connectForFirstTime);
     }
 
     @Override
-    public void register(int brokerID, ArtistName artistName){}
+    public void register()
+    {
+        init();
+        connect();  
+    }
 
     @Override
-    public void disconnect(int brokerID, ArtistName artistName){}
+    public void unregister()
+    {
+        try 
+        {
+            out.writeObject("I want to unregister");
+            String answer = (String)in.readObject();
+            System.out.println(answer);
+            in.close(); 
+            out.close();
+            requestSocket.close();
+            System.out.println("Client unregister from server...");
+        } 
+        catch(IOException | ClassNotFoundException ioException) 
+        {
+            ioException.printStackTrace();
+        }
+    }
 
     @Override
     public void playData(ArtistName artistName, Value musicFile){}
 
     @Override
-    public void init() 
+    public void init()
     {
         try 
         {
             requestSocket = new Socket(serverIP, Integer.parseInt(port));//open a connection with a broker(server)
+            System.out.println("Server which client try to connect");//(debug)
             System.out.println(requestSocket.getInetAddress());//(debug)
             System.out.println(requestSocket.getPort());//(debug)
             out = new ObjectOutputStream(requestSocket.getOutputStream());//receive a message
@@ -82,16 +109,60 @@ public class ConsumerNode implements Consumer{
     @Override
     public void connect() 
     {
+        boolean flag = false;
         try 
         {
-            out.writeObject("ConsumerNode");//Brocker should know the type of client
+            out.writeObject("ConsumerNode");//Broker should know the type of client
             System.out.println("Client type sent.");
             out.writeObject(attributes);//send a list of attributes(consumer name - password - first time connect)
-            out.flush();
-            Info answer = (Info)in.readObject();//Info obejct is a message which contains broker List with broker's attributes
-            System.out.println(answer.getBrokers());//(debug)
-            System.out.println(answer.getArtistToBroker());//(debug)   
-            disconnect();
+
+            if(this.connectForFirstTime.equals("true"))
+            {  
+                answer = (Info)in.readObject();//Info object is a message which contains broker List with broker's attributes
+                brokersInfo.addAll(answer.getBrokers());
+                System.out.println(brokersInfo);//(debug)
+                System.out.println(answer.getArtistToBroker());//(debug)  
+                this.connectForFirstTime = "false";
+                attributes.set(2, "false");
+
+                String tempBrokerId = null;
+                while(tempBrokerId == null)//ask user for an existing artist
+                {
+                    tempBrokerId = answer.getArtistToBroker().get(getArtistNameFromUser());
+                    System.out.println("Server which is responsible for this Artits, has ID: " + tempBrokerId);//(debug)
+                }
+                getSongNameFromUser();//ask user for a song
+                for(ArrayList<String> element : brokersInfo)//ckeck if the random server is right if not disconnect and connect to right server
+                {
+                    if(element.get(0).equals(tempBrokerId))
+                    {
+                        if(!(element.get(1).equals(this.port) && element.get(2).equals(this.serverIP)))
+                        {
+                            out.writeObject("i do not want to register");
+                            out.flush();
+                            disconnect();
+                            setPort(element.get(1));
+                            setServerIP(element.get(2));
+                            register();
+                            flag = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!flag)//send artist and song to server and revieve user's song
+            {
+                out.writeObject("i want to register");
+                out.writeObject(new ArtistName(this.artistName));
+                out.writeObject(this.songName);
+                while(true)
+                {
+                    System.out.println("Waiting to receive song");
+                    break;
+                }
+                out.flush();
+                unregister();
+            }
         } 
         catch(IOException | ClassNotFoundException e) 
         {  
@@ -107,6 +178,7 @@ public class ConsumerNode implements Consumer{
             in.close(); 
             out.close();
             requestSocket.close();
+            System.out.println("Client end first connection with server...");
         } 
         catch(IOException ioException) 
         {
@@ -135,5 +207,34 @@ public class ConsumerNode implements Consumer{
     public String getPort()
     {
         return this.port;
+    }
+
+    public String getForFirstTime()
+    {
+        return this.getArtistNameFromUser();
+    }
+
+    public void setPort(String port)
+    {
+        this.port = port;
+    }
+
+    public void setServerIP(String serverIP)
+    {
+        this.serverIP = serverIP;
+    }
+
+    private String getArtistNameFromUser()
+    {
+        System.out.println("Give an existing artist");
+        this.artistName = System.console().readLine();
+        return this.artistName;
+    }
+
+    private String getSongNameFromUser()
+    {
+        System.out.println("Give a song");
+        this.songName =  System.console().readLine();
+        return this.songName;
     }
 }
