@@ -1,5 +1,8 @@
-public class ArtistName {
+import java.io.Serializable;
+
+public class ArtistName implements Serializable{
 	
+	private static final long serialVersionUID = 1285132875800819988L;
 	private String artistName;
 	
 	ArtistName(String artistName){ this.artistName = artistName; }
