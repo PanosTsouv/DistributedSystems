@@ -30,18 +30,6 @@ public class PublisherHandlerThread extends Thread {
             {
                 e.printStackTrace();
             }
-            finally
-            {
-                try
-                {
-                    in.close();
-                    out.close();
-                }
-                catch(IOException ioException)
-                {
-                    ioException.printStackTrace();
-                }
-            }
         } 
         else 
         {
