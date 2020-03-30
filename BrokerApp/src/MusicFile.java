@@ -1,8 +1,5 @@
-import java.io.Serializable;
-
-public class MusicFile implements Serializable {
-	
-	private static final long serialVersionUID = 3047038005316037603L;
+public class MusicFile
+{
 	private String trackName;
 	private String artistName;
 	private String albumInfo;
