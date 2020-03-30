@@ -1,3 +1,4 @@
+import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 
 public interface Broker extends Node{
@@ -8,7 +9,7 @@ public interface Broker extends Node{
 	void acceptConnectionPublisher(ArrayList<String> PN);
 	void acceptConnectionConsumer(ArrayList<String> CN);
 	void notifyPublisher(String message);
-	void pull(ArtistName artistName, String songName);
+	void pull(ArtistName artistName, String songName, ObjectOutputStream outConsumer);
 	String getHashBroker();
 	void setHashBroker(String hashBroker);
 	String getBrokerID();
