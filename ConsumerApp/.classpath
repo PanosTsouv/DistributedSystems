@@ -5,4 +5,5 @@
 	<classpathentry kind="output" path="bin"/>
 	<classpathentry kind="lib" path="lib/mp3agic-0.9.1.jar"/>
 	<classpathentry kind="lib" path="lib/rt.jar"/>
+	<classpathentry kind="lib" path="lib/jl1.0.1.jar"/>
 </classpath>
