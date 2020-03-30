@@ -1,6 +1,8 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import javazoom.jl.decoder.JavaLayerException;
+import javazoom.jl.player.Player;
 
 //@serverIP : is the IP of server which the consumer connect
 //@port : is the port of server which the consumer connect
@@ -29,6 +31,7 @@ public class ConsumerNode implements Consumer{
     private Info answer = null;
 
     private ArrayList<String> attributes = new ArrayList<>();
+    private ArrayList<File> streaming = new ArrayList<>();
 
     private Socket requestSocket = null;
     private ObjectOutputStream out = null;
@@ -49,34 +52,65 @@ public class ConsumerNode implements Consumer{
         attributes.add(this.connectForFirstTime);
     }
 
+    //we use register method when the broker, which user connect for first time,is wrong
     @Override
-    public void register()
-    {
+    public void register(){
         init();
-        connect();  
+        connect();
     }
 
     @Override
-    public void unregister()
-    {
-        try 
-        {
+    public void unregister() {
+        try {
             out.writeObject("I want to unregister");
-            String answer = (String)in.readObject();
+            String answer = (String) in.readObject();
             System.out.println(answer);
-            in.close(); 
+            in.close();
             out.close();
             requestSocket.close();
             System.out.println("Client unregister from server...");
-        } 
-        catch(IOException | ClassNotFoundException ioException) 
-        {
+        } catch (IOException | ClassNotFoundException ioException) {
             ioException.printStackTrace();
         }
     }
 
     @Override
-    public void playData(ArtistName artistName, Value musicFile){}
+    public void playData() {
+        while (streaming.isEmpty()) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        System.out.println("We are playing data");
+        int count = 0;
+        FileInputStream fis = null;
+        BufferedInputStream bis = null;
+        Player player = null;
+
+        while (count != streaming.size()) {
+            try {
+                fis = new FileInputStream(this.streaming.get(count).getPath());
+                bis = new BufferedInputStream(fis);
+                player = new Player(bis);
+                player.play();
+            } catch (JavaLayerException | FileNotFoundException e) {
+                e.printStackTrace();
+            }
+            count++;
+        }
+        try
+        {
+            fis.close();
+            bis.close();
+        }
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+        player.close();
+    }
 
     @Override
     public void init()
@@ -118,49 +152,21 @@ public class ConsumerNode implements Consumer{
 
             if(this.connectForFirstTime.equals("true"))
             {  
-                answer = (Info)in.readObject();//Info object is a message which contains broker List with broker's attributes
-                brokersInfo.addAll(answer.getBrokers());
-                System.out.println(brokersInfo);//(debug)
-                System.out.println(answer.getArtistToBroker());//(debug)  
-                this.connectForFirstTime = "false";
-                attributes.set(2, "false");
-
-                String tempBrokerId = null;
-                while(tempBrokerId == null)//ask user for an existing artist
-                {
-                    tempBrokerId = answer.getArtistToBroker().get(getArtistNameFromUser());
-                    System.out.println("Server which is responsible for this Artits, has ID: " + tempBrokerId);//(debug)
-                }
-                getSongNameFromUser();//ask user for a song
-                for(ArrayList<String> element : brokersInfo)//ckeck if the random server is right if not disconnect and connect to right server
-                {
-                    if(element.get(0).equals(tempBrokerId))
-                    {
-                        if(!(element.get(1).equals(this.port) && element.get(2).equals(this.serverIP)))
-                        {
-                            out.writeObject("i do not want to register");
-                            out.flush();
-                            disconnect();
-                            setPort(element.get(1));
-                            setServerIP(element.get(2));
-                            register();
-                            flag = true;
-                            break;
-                        }
-                    }
-                }
+                flag = connectForFirstTime(flag);
             }
             if (!flag)//send artist and song to server and revieve user's song
             {
+                new Thread()
+                {
+                    public void run()
+                    {
+                        playData();
+                    }
+                }.start();
                 out.writeObject("i want to register");
                 out.writeObject(new ArtistName(this.artistName));
                 out.writeObject(this.songName);
-                while(true)
-                {
-                    System.out.println("Waiting to receive song");
-                    break;
-                }
-                out.flush();
+                writeData();//receive and write the song
                 unregister();
             }
         } 
@@ -168,6 +174,84 @@ public class ConsumerNode implements Consumer{
         {  
             e.printStackTrace();
         }
+    }
+
+    public boolean connectForFirstTime(boolean flag) throws ClassNotFoundException, IOException
+    {
+        answer = (Info)in.readObject();//Info object is a message which contains broker List with broker's attributes
+        brokersInfo.addAll(answer.getBrokers());
+        System.out.println(brokersInfo);//(debug)
+        System.out.println(answer.getArtistToBroker());//(debug)  
+        this.connectForFirstTime = "false";
+        attributes.set(2, "false");
+
+        String tempBrokerId = null;
+        while(tempBrokerId == null)//ask user for an existing artist
+        {
+            tempBrokerId = answer.getArtistToBroker().get(getArtistNameFromUser());
+            System.out.println("Server which is responsible for this Artits, has ID: " + tempBrokerId);//(debug)
+        }
+        getSongNameFromUser();//ask user for a song
+        for(ArrayList<String> element : brokersInfo)//ckeck if the random server is right if not disconnect and connect to right server
+        {
+            if(element.get(0).equals(tempBrokerId))
+            {
+                if(!(element.get(1).equals(this.port) && element.get(2).equals(this.serverIP)))//ckeck if the random broker at start is the correct broker
+                {
+                    out.writeObject("i do not want to register");
+                    out.flush();
+                    disconnect();
+                    setPort(element.get(1));
+                    setServerIP(element.get(2));
+                    register();
+                    flag = true;
+                    return flag;
+                }
+            }
+        }
+        return false;
+    }
+
+    public void writeData() throws ClassNotFoundException, IOException
+    {
+        int size = (int) in.readObject();
+        StringBuilder path = new StringBuilder();
+        String prefix = ".";
+        File someFile;
+        FileOutputStream fos = null;
+        FileOutputStream streamID = null;
+        
+        path.append(System.getProperty("user.dir") + "/download/" + this.songName + "-part0.mp3");
+        int count = 0;
+        while(count != size)
+        {
+            int k = path.indexOf(prefix);
+            if (k != -1) {
+                path.delete(k-1, k + path.length());
+            }
+            path.append(count);
+            path.append(".mp3");
+            System.out.println("Waiting to receive song");
+            System.out.println(path);
+            Value temp = (Value)in.readObject();
+            System.out.println(temp);
+            
+            someFile = new File(path.toString());
+            fos = new FileOutputStream(someFile);
+            fos.write(temp.getMusicFile().getMusicFileExtract());
+            fos.flush();
+            streaming.add(someFile);
+            
+            streamID = new FileOutputStream(System.getProperty("user.dir") + "/download/" + this.songName + ".mp3",true);
+            streamID.write(temp.getMusicFile().getMusicFileExtract());
+            
+            count++;
+        }
+        streamID.flush();
+        streamID.close();
+
+        out.flush();
+        fos.close();
     }
 
     @Override
@@ -184,34 +268,6 @@ public class ConsumerNode implements Consumer{
         {
             ioException.printStackTrace();
         }
-    }
-
-    @Override
-    public void updateNodes() {}
-
-    public String getConsumerName()
-    {
-        return this.consumerName;
-    }
-
-    public String getConsumerPassword()
-    {
-        return this.consumerPassword;
-    }
-
-    public String getServerIP()
-    {
-        return this.serverIP;
-    }
-
-    public String getPort()
-    {
-        return this.port;
-    }
-
-    public String getForFirstTime()
-    {
-        return this.getArtistNameFromUser();
     }
 
     public void setPort(String port)
