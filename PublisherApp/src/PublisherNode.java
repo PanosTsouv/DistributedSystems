@@ -12,21 +12,25 @@ public class PublisherNode implements Publisher{
     private String port;
     private String ownServerIP;
     private String serverIP;
+    private String path;
+    private char start;
+    private char end;
 
     private ArrayList<ArrayList<String>> songsInfo;
-    private ArrayList<String> ID_hashes;
     private HashMap<String, String> uniqueArtistToBroker = new HashMap<>();
     private ArrayList<String> attributes = new ArrayList<>();
-    private static transient HashMap<String, Queue<String>> musicMap;
-
     private ServerSocket providerSocket = null;
     private Socket requestSocket = null;
     private ObjectOutputStream out = null;
     private ObjectInputStream in = null;
 
-    public PublisherNode(String publisherID, String port, String ownPort, String serverIP)
+    public PublisherNode(String publisherID, String port, String ownPort, String serverIP, String path, char start, char end)
     {
         this.publisherID = publisherID;
+        this.port = port;
+        this.path = path;
+        this.start = start;
+        this.end = end;
         try
         {
             this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
@@ -35,9 +39,7 @@ public class PublisherNode implements Publisher{
         {
             e.printStackTrace();
         }
-        System.out.println("Server part of publisher has ServerIp: " + this.ownServerIP);
-        
-        this.port = port;
+        System.out.println("Publisher " + this.publisherID + " PublisherIp: " + this.ownServerIP + " Port " + this.port + "\n");
         this.ownPort = ownPort;
         this.serverIP = serverIP;
         attributes.add(this.publisherID);
@@ -53,14 +55,15 @@ public class PublisherNode implements Publisher{
         try
         {
             out.writeObject("PublisherNode");
-            System.out.println("Client type sent");
+            System.out.println("Client part of publisher :: Sends its type");
             out.writeObject(attributes);
 
             ArrayList<ArrayList<String>> request = (ArrayList<ArrayList<String>>) in.readObject();
+            System.out.println("Client part of publisher :: Receives broker's list and it start print this list....");
             for (ArrayList<String> element : (ArrayList<ArrayList<String>>)request)
             {
                 brokersInfo.add(element);
-                System.out.println("Broker with id " + element.get(0) + " has hash code: " + element.get(3));
+                System.out.println("{Broker " + element.get(0) + " has hash code: " + element.get(3) + "}");
             }
             out.flush();
         }
@@ -115,7 +118,11 @@ public class PublisherNode implements Publisher{
     }
 
     @Override
-    public void push(ArtistName artistName, Value musicFile) throws IOException{}
+    public void push(ArtistName artistName, Value musicFile, ObjectOutputStream outToBroker) throws IOException
+    {
+        outToBroker.writeObject(musicFile);
+        outToBroker.flush();
+    }
 
     @Override
     public void init()
@@ -125,6 +132,7 @@ public class PublisherNode implements Publisher{
             requestSocket = new Socket(serverIP, Integer.parseInt(port));
             out = new ObjectOutputStream(requestSocket.getOutputStream());
             in = new ObjectInputStream(requestSocket.getInputStream());
+            System.out.println("Client part of publisher :: Publisher " + this.publisherID + " is successfully connected with server with IP: " + serverIP + " Port: " + port);
         } 
         catch(UnknownHostException unknownHost) 
         {
@@ -153,7 +161,7 @@ public class PublisherNode implements Publisher{
             out.close();
             in.close();
             requestSocket.close();
-            System.out.println("Connection ended!");
+            System.out.println("Client part of publisher :: Publisher " + this.publisherID + " disconnected");
         }
         catch (IOException IOE)
         {
@@ -161,30 +169,26 @@ public class PublisherNode implements Publisher{
         }
     }
 
-    @Override
-    public void updateNodes(){}
-
-    private boolean hasData()
-    {
-        return true;
+    public void acceptConnectionBroker(Socket requestSocket, PublisherNode publisher) {
+        System.out.println("Server part of publisher :: Broker Client detected");
+        BrokerHandlerThread action = new BrokerHandlerThread(requestSocket, publisher, this.songsInfo);
+        System.out.println("Server part of publisher :: Handler created.");
+        new Thread(action).start();
     }
 
     public void openServer()
     {
         try
         {
-            providerSocket = new ServerSocket(Integer.parseInt(this.ownPort), 10);
-            System.out.println("Server part of publisher is waiting at port: 4500");
+            providerSocket = new ServerSocket(Integer.parseInt(this.ownPort),10);
+            System.out.println("Server part of publisher is waiting at port: " + this.ownPort);
             while(true) 
             {
-                
                 requestSocket = providerSocket.accept();
-                out = new ObjectOutputStream(requestSocket.getOutputStream());
-                in = new ObjectInputStream(requestSocket.getInputStream());
-                Object request = in.readObject();
+                acceptConnectionBroker(requestSocket, this);
             }
         } 
-        catch (IOException | ClassNotFoundException e)
+        catch (IOException  e)
         {
             e.printStackTrace();
         }
@@ -203,15 +207,16 @@ public class PublisherNode implements Publisher{
 
     public void calculateBrokerArtistMap()
     {
-        ReadDataBase a = new ReadDataBase("C:/Users/Panagiotis/Desktop/Distributed Systems/PublisherApp/dataset1", 'A', 'J');
+        ReadDataBase a = new ReadDataBase(this.path, this.start, this.end);
         songsInfo = a.readthePathOfMusicFiles();
         for(ArrayList<String> element : songsInfo)
         { 
             uniqueArtistToBroker.put(element.get(1), hashTopic(new ArtistName(element.get(1))));
         }
+        System.out.println("Server part of publisher :: Calculates and prints a HashMap with Key: Artist and Value: BrokerID");
         for(Map.Entry<String, String> entry : uniqueArtistToBroker.entrySet()) 
         {
-		    System.out.println(entry.getKey() + " = " + entry.getValue());
+		    System.out.println("{Artist: " + entry.getKey() + " -> Broker " + entry.getValue() + "}");
         }
     }
 
@@ -222,11 +227,14 @@ public class PublisherNode implements Publisher{
             try
             {
                 requestSocket = new Socket(brokersInfo.get(i).get(2), Integer.parseInt(brokersInfo.get(i).get(1)));
+                System.out.println("Client part of publisher :: Publisher " + this.publisherID + " is successfully connected with server with IP: " + brokersInfo.get(i).get(2) + " Port: " + brokersInfo.get(i).get(1));
                 out = new ObjectOutputStream(requestSocket.getOutputStream());
                 in = new ObjectInputStream(requestSocket.getInputStream());
                 out.writeObject("PublisherNode");
                 out.writeObject(attributes);
+                System.out.println("Client part of publisher :: Sends its type");
                 out.writeObject(uniqueArtistToBroker);
+                System.out.println("Client part of publisher :: Sends a HashMap {Key:Artist , Value:BrokerID}");
                 disconnect();
             } 
             catch (UnknownHostException unknownHost) 
