@@ -1,13 +1,15 @@
-public class MusicFile
-{
+import java.io.Serializable;
+
+public class MusicFile implements Serializable{
+	
+	private static final long serialVersionUID = 3047038005316037603L;
 	private String trackName;
 	private String artistName;
 	private String albumInfo;
 	private String genre;
 	private byte[] musicFileExtract;
 	
-	MusicFile(String trackName, String artistName, String albumInfo, String genre, byte[] musicFileExtract)
-	{
+	MusicFile(String trackName, String artistName, String albumInfo, String genre, byte[] musicFileExtract){
 		this.trackName = trackName;
 		this.artistName = artistName;
 		this.albumInfo = albumInfo;
