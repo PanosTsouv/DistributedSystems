@@ -1,96 +1,162 @@
-import java.io.*;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
-import java.net.*;
+import java.net.InetAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class BrokerNode implements Broker{
-    
+public class BrokerNode implements Broker {
+
+    //attributes of broker as Server
     private String brokerID;
     private String ownPort;
     private String ownServerIP;
     private String hashBroker;
     private int numberOfBrokers;
+    private ServerSocket providerSocket = null;
+    private Socket connection = null;
 
     private String serverIP;
     private String port;
+    private Socket connectionAsClient = null;
+    private ObjectInputStream inAsClient = null;
+    private ObjectOutputStream outAsClient = null;
 
     private ArrayList<String> attributes = new ArrayList<>();
-    private HashMap<String,String> artistToBrokers = new HashMap<>();
-    private HashMap<String,String> artistToPublisher = new HashMap<>();
+    private HashMap<String, String> artistToBrokers = new HashMap<>();
+    private HashMap<String, String> artistToPublisher = new HashMap<>();
+    private HashMap<String, Value[]> songsInCache = new HashMap<>();
 
-    private ServerSocket providerSocket = null;
-    private Socket connection = null;
-    private ObjectInputStream in;
-    private ObjectOutputStream out;
+    public BrokerNode(){}
 
-    public BrokerNode(String ownPort, String brokerID, int numberOfBrokers) 
-    {
+    public BrokerNode(String ownPort, String brokerID, int numberOfBrokers) {
 
-        try 
-        {
-            this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) 
-        {
-            e.printStackTrace();
-        }
         this.brokerID = brokerID;
         this.ownPort = ownPort;
+        try {
+            this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            e.printStackTrace();
+        }
         this.numberOfBrokers = numberOfBrokers;
         calculateKeys();
+
         attributes.add(this.brokerID);
         attributes.add(this.ownPort);
         attributes.add(this.ownServerIP);
         attributes.add(this.hashBroker);
         brokersInfo.add(attributes);
-        System.out.println("Broker " + this.brokerID + " BrokerIp: " + this.ownServerIP + " Port: " + this.ownPort + " ServerHash: " + this.hashBroker);
+        System.out.println("Broker " + this.brokerID + " BrokerIp: " + this.ownServerIP + " Port: " + this.ownPort + " ServerHash: " + this.hashBroker + "\n");
+    }
+
+    
+    /////////////////////////////////////////////////
+    ///////////////                  ///////////////
+    //////////////    CLIENT PART   ///////////////
+    /////////////                  ///////////////
+    /////////////////////////////////////////////
+
+    @Override
+    public void init() {
+        try 
+        {
+            connectionAsClient = new Socket(this.serverIP, Integer.parseInt(this.port));
+            outAsClient = new ObjectOutputStream(connectionAsClient.getOutputStream());
+            inAsClient = new ObjectInputStream(connectionAsClient.getInputStream());
+            System.out.println("Client part of Broker :: Connected.");
+        } 
+        catch(UnknownHostException unknownHost)
+        {
+            System.err.println("You are trying to connect to an unknown host!");
+        }
+        catch(IOException ioException)
+        {
+            ioException.printStackTrace();
+        }
     }
 
     @Override
-    public void calculateKeys() 
-    {
-        BigInteger sha1 = null;
+    public void connect() throws IOException {
+       
+
+    }
+
+    @Override
+    public void disconnect(){
         try 
         {
-            MessageDigest msdDigest = MessageDigest.getInstance("SHA-1");
-            msdDigest.update((this.ownPort + this.ownServerIP).getBytes("UTF-8"), 0, (this.ownPort + this.ownServerIP).length());
-            sha1 = new BigInteger(1, msdDigest.digest());
+            inAsClient.close();
+            outAsClient.close();
+            connectionAsClient.close();
+            System.out.println("Client part of Broker :: Disconnected.");
         } 
-        catch (UnsupportedEncodingException | NoSuchAlgorithmException e) 
+        catch (IOException e)
         {
             e.printStackTrace();
         }
-        this.hashBroker = sha1.toString(10).substring(0,3);
-
     }
 
-    @Override
-    public void acceptConnectionPublisher(ArrayList<String> publisherInfo) 
+    public void connectWithBrokers(){
+        try 
+        {
+            outAsClient.writeObject("BrokerNode");
+            outAsClient.writeObject(this.attributes);
+            outAsClient.flush();
+        }
+        catch(IOException e) 
+        {
+            e.printStackTrace();
+        }
+        System.out.println("Client part of broker :: Send broker signature");
+        disconnect();
+    }
+
+    public void setConnectionServerIP()
     {
-        System.out.println("Server part of broker :: Publisher Client detected");
-        PublisherHandlerThread action = new PublisherHandlerThread(out, in, publisherInfo, this);
-        System.out.println("Server part of broker :: Handler created.");
-        new Thread(action).start();
+        System.out.println("Client part of broker :: Give the serverIP of connection");
+        this.serverIP = System.console().readLine();
     }
 
-    @Override
-    public void acceptConnectionConsumer(ArrayList<String> consumerInfo) 
+    public void setConnectionPort()
     {
-        System.out.println("Server part of broker :: Consumer Client detected");
-        ConsumerHandlerThread action = new ConsumerHandlerThread(out, in, consumerInfo, this);
-        System.out.println("Server part of broker :: Handler created.");
-        new Thread(action).start();
+        System.out.println("Client part of broker :: Give the port of connection");
+        this.port = System.console().readLine();
     }
 
-    @Override
-    public void notifyPublisher(String message){}
+    public void setServerIP(String serverIP)
+    {
+        this.serverIP = serverIP;
+    }
 
-    @Override
-    public void pull(ArtistName artistName, String songName){}
+    public void setPort(String port)
+    { 
+        this.port = port;
+    }
 
-    @SuppressWarnings("unchecked")
+    public ObjectInputStream getInAsClient()
+    {
+        return this.inAsClient;
+    }
+
+    public ObjectOutputStream getOutAsClient()
+    { 
+        return this.outAsClient;
+    }
+
+
+    /////////////////////////////////////////////////
+    ///////////////                  ///////////////
+    //////////////   SERVER PART    ///////////////
+    /////////////                  ///////////////
+    /////////////////////////////////////////////
+
     public void openServer() 
     {
         try 
@@ -99,35 +165,10 @@ public class BrokerNode implements Broker{
             while (true) 
             {
                 connection = providerSocket.accept();
-                out = new ObjectOutputStream(connection.getOutputStream());
-                in = new ObjectInputStream(connection.getInputStream());
-                new Thread()
-                {
-                    public void run()
-                    {
-                        try 
-                        {
-                            String type;
-                            type = (String) in.readObject();
-                            ArrayList<String> info = (ArrayList<String>) in.readObject();
-                            if(type.equals("ConsumerNode")) 
-                            {
-                                acceptConnectionConsumer(info);
-                            } 
-                            else if(type.equals("PublisherNode")) 
-                            {
-                                acceptConnectionPublisher(info);
-                            }
-                            else 
-                            {
-                                brokersInfo.add(info);
-                                System.out.println("Server part of broker :: Receive another broker and add it to the list");
-                            }
-                        } catch (ClassNotFoundException | IOException e) {
-                            e.printStackTrace();
-                        }
-                    }
-                }.start();
+                System.out.println("Server part of broker :: Client connected.");
+                ActionsForClients add = new ActionsForClients(connection, this);
+                System.out.println("Server part of broker :: Handler created.");
+                new Thread(add).start();
             }
         } 
         catch (IOException e) 
@@ -147,119 +188,81 @@ public class BrokerNode implements Broker{
         }
     }
 
-    @Override
-    public void init() 
-    {
-        try 
-        {
-            connection = new Socket(this.serverIP, Integer.parseInt(this.port));
-            out = new ObjectOutputStream(connection.getOutputStream());
-            in = new ObjectInputStream(connection.getInputStream());
-        } 
-        catch(UnknownHostException unknownHost)
-        {
-            System.err.println("You are trying to connect to an unknown host!");
-        }
-        catch(IOException ioException)
-        {
-            ioException.printStackTrace();
-        }
-    }
-
-    @Override
-    public ArrayList<ArrayList<String>> getBrokersInfo(){
-        return brokersInfo;
-    }
-
-    public String getBrokerID()
-    {
-        return this.brokerID;
-    }
-
-    public String getHashBroker() 
-    {
-        return hashBroker;
-    }
-
-    public void setHashBroker(String hashBroker) 
-    {
-        this.hashBroker = hashBroker;
-    }
-
+    
     public int getNumbersOfBroker()
     {
         return this.numberOfBrokers;
     }
 
+    @Override
+    public ArrayList<ArrayList<String>> getBrokersInfo() {
+        
+        return brokersInfo;
+    }
+
+
+    @Override
+    public void calculateKeys() {
+        BigInteger sha1 = null;
+        try {
+            MessageDigest msdDigest = MessageDigest.getInstance("SHA-1");
+            msdDigest.update((this.ownPort + this.ownServerIP).getBytes("UTF-8"), 0, (this.ownPort + this.ownServerIP).length());
+            sha1 = new BigInteger(1, msdDigest.digest());
+        } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        this.hashBroker = sha1.toString(10).substring(0, 3);
+    }
+
+    @Override
+    public void pull(ArtistName artistName, String songName, ObjectOutputStream outConsumer) 
+    {
+        try 
+        {
+            outConsumer.writeObject(getSongsInCache().get(songName).length);
+            int count = 0;
+            while (count != getSongsInCache().get(songName).length)
+            {
+                while(getSongsInCache().get(songName)[count] == null)
+                {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+                outConsumer.writeObject(getSongsInCache().get(songName)[count]);
+                count++;
+            }
+            outConsumer.flush();
+        }
+        catch (IOException e) 
+        {
+            e.printStackTrace();
+        }
+
+    }
+
+    
+
+    @Override
+    public String getBrokerID() {
+        return brokerID;
+    }
+
+    public HashMap<String,Value[]> getSongsInCache()
+    {
+        return this.songsInCache;
+    }
+
+	public HashMap<String, ArrayList<String>> getRegisteredPublishers()
+    {
+        return registeredPublishers;
+    }
+
     public ArrayList<ArrayList<String>> getRegisteredUsers()
     {
         return registeredUsers;
-    }
-
-    public void setConnectionServerIP()
-    {
-        System.out.println("Client part of broker :: Give the serverIP of connection");
-        this.serverIP = System.console().readLine();
-    }
-
-    public void setConnectionPort()
-    {
-        System.out.println("Client part of broker :: Give the port of connection");
-        this.port = System.console().readLine();
-    }
-
-    @Override
-    public void connect() 
-    {
-        try 
-        {
-            out.writeObject(null);
-        } 
-        catch(IOException e) 
-        {
-            e.printStackTrace();
-        }
-        System.out.println("Send broker list");
-        disconnect();
-    }
-
-    @Override
-    public void disconnect()
-     {
-        try 
-        {
-            in.close();
-            out.close();
-            connection.close();
-        }
-        catch (IOException ioException) 
-        {
-            ioException.printStackTrace();
-        }
-    }
-
-    @Override
-    public void updateNodes(){}
-
-    public void connectWithBrokers(){
-        try 
-        {
-            for(ArrayList<String> element : brokersInfo)
-            {
-                if(element.get(0) == this.brokerID)
-                {
-                    out.writeObject("BrokerNode");
-                    out.writeObject(element);
-                    out.flush();
-                }
-            }
-        }
-        catch(IOException e) 
-        {
-            e.printStackTrace();
-        }
-        System.out.println("Client part of broker :: Send broker signature");
-        disconnect();
     }
 
     public HashMap<String,String> getArtistToBrokers()
@@ -271,4 +274,6 @@ public class BrokerNode implements Broker{
     {
         return this.artistToPublisher;
     }
+
+    
 }
