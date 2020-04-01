@@ -39,8 +39,8 @@ public class PublisherNode implements Publisher{
         {
             e.printStackTrace();
         }
-        System.out.println("Publisher " + this.publisherID + " PublisherIp: " + this.ownServerIP + " Port " + this.port + "\n");
         this.ownPort = ownPort;
+        System.out.println("Publisher " + this.publisherID + " PublisherIp: " + this.ownServerIP + " Port " + this.ownPort + "\n");
         this.serverIP = serverIP;
         attributes.add(this.publisherID);
         attributes.add(this.ownServerIP);
@@ -55,8 +55,10 @@ public class PublisherNode implements Publisher{
         try
         {
             out.writeObject("PublisherNode");
+            out.flush();
             System.out.println("Client part of publisher :: Sends its type");
             out.writeObject(attributes);
+            out.flush();
 
             ArrayList<ArrayList<String>> request = (ArrayList<ArrayList<String>>) in.readObject();
             System.out.println("Client part of publisher :: Receives broker's list and it start print this list....");
@@ -76,10 +78,15 @@ public class PublisherNode implements Publisher{
         disconnect();
     }
 
+    public ArrayList<ArrayList<String>> getSongInfo()
+    {
+        return this.songsInfo;
+    }
+
     @Override
     public String hashTopic(ArtistName artistName) 
     {
-        String artsishHash;
+        String artistHash;
         BigInteger sha1 = null;
         String brokerId = "";
         HashMap<Integer,Integer> tempBrokerHashAsMap = new HashMap<>();
@@ -102,13 +109,13 @@ public class PublisherNode implements Publisher{
         {
             e.printStackTrace();
         }
-        artsishHash = sha1.toString(10).substring(0,3);
-        artsishHash = Integer.toString(Integer.parseInt(artsishHash) % tempBrokerHashAsList.get(tempBrokerHashAsList.size()-1));
+        artistHash = sha1.toString(10).substring(0,3);
+        artistHash = Integer.toString(Integer.parseInt(artistHash) % tempBrokerHashAsList.get(tempBrokerHashAsList.size()-1));
         
 
         for(int element : tempBrokerHashAsList)
         {
-            if(Integer.parseInt(artsishHash) < element)
+            if(Integer.parseInt(artistHash) < element)
             {
                 brokerId = Integer.toString(tempBrokerHashAsMap.get(element));
                 break;
@@ -180,7 +187,7 @@ public class PublisherNode implements Publisher{
     {
         try
         {
-            providerSocket = new ServerSocket(Integer.parseInt(this.ownPort),10);
+            providerSocket = new ServerSocket(Integer.parseInt(this.ownPort));
             System.out.println("Server part of publisher is waiting at port: " + this.ownPort);
             while(true) 
             {
@@ -231,9 +238,12 @@ public class PublisherNode implements Publisher{
                 out = new ObjectOutputStream(requestSocket.getOutputStream());
                 in = new ObjectInputStream(requestSocket.getInputStream());
                 out.writeObject("PublisherNode");
+                out.flush();
                 out.writeObject(attributes);
+                out.flush();
                 System.out.println("Client part of publisher :: Sends its type");
                 out.writeObject(uniqueArtistToBroker);
+                out.flush();
                 System.out.println("Client part of publisher :: Sends a HashMap {Key:Artist , Value:BrokerID}");
                 disconnect();
             } 
