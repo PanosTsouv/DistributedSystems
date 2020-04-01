@@ -25,42 +25,86 @@ public class BrokerHandlerThread extends Thread {
 
     public void run() {
         System.out.println("Server part of publisher :: New thread created");
-        try{
-            int i;
-            ArtistName userArtist = (ArtistName) in.readObject();
-            String userSong = (String) in.readObject();
-            System.out.println("Server part of publisher :: Receives a new request { " + userArtist.getArtistName() + " , " + userSong + "}");
-            for(i = 0; i < this.songsInfo.size(); i++)
+        try
+        {
+            String answerCategory = (String)in.readObject();
+            if(answerCategory.equals("Request"))
             {
-                if(userArtist.getArtistName().equals(songsInfo.get(i).get(1)) && userSong.equals(songsInfo.get(i).get(2)))
+                int i;
+                ArtistName userArtist = (ArtistName) in.readObject();
+                String userSong = (String) in.readObject();
+                System.out.println("Server part of publisher :: Receives a new request { " + userArtist.getArtistName() + " , " + userSong + "}");
+                for(i = 0; i < this.songsInfo.size(); i++)
                 {
-                    break;
-                }
-            }
-            chunks = findChunks(this.songsInfo.get(i).get(0));
-            System.out.println("Server part of publisher :: Creation of chunks were successful -- " + chunks.size() + " chunks created");
-            out.writeObject(chunks.size());
-            while(!chunks.isEmpty())
-            {
-                if(userArtist.getArtistName().equals("Kevin MacLeod"))
-                {
-                    try {
-                        Thread.sleep(20000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
+                    if(userArtist.getArtistName().equals(songsInfo.get(i).get(1)) && userSong.equals(songsInfo.get(i).get(2)))
+                    {
+                        break;
                     }
                 }
-                this.publisher.push(userArtist, chunks.remove(0), out);
+                chunks = findChunks(this.songsInfo.get(i).get(0));
+                System.out.println("Server part of publisher :: Creation of chunks weas successful -- " + chunks.size() + " chunks created");
+                
+                out.writeObject(chunks.size());
+                while(!chunks.isEmpty())
+                {
+                    if(userArtist.getArtistName().equals("Kevin MacLeod"))
+                    {
+                        try
+                        {
+                            Thread.sleep(3000);
+                        }
+                        catch (InterruptedException ie)
+                        {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    this.publisher.push(userArtist, chunks.remove(0), out);
+                }
+                System.out.println("Server part of publisher :: Publisher sent all chunks");
             }
-            System.out.println("Server part of publisher :: Publisher sends all chunks");
-        }catch (IOException | ClassNotFoundException e) {
+            else if(answerCategory.equals("List"))
+            {
+                ArtistName userArtist = (ArtistName)in.readObject();
+                System.out.println("Server part of publisher :: Return a list with songs of artist: " + userArtist.getArtistName());
+                out.writeObject(songsOfSpecificArtist(userArtist.getArtistName()));
+                out.flush();
+            }
+        }
+        catch(IOException | ClassNotFoundException e) 
+        {
             e.printStackTrace();
+        }
+        finally
+        {
+            try
+            {
+                in.close();
+                out.close();
+                System.out.println("Server part of publisher :: A request is done!!!Close thread.");
+                System.out.println();
+            }
+            catch(IOException ioException)
+            {
+                ioException.printStackTrace();
+            }
         }
     }
 
+    public ArrayList<String> songsOfSpecificArtist(String userArtist)
+    {
+        ArrayList<String> temp = new ArrayList<>();
+        for(ArrayList<String> element : publisher.getSongInfo())
+        {
+            if(element.get(1).equals(userArtist))
+            {
+                temp.add(element.get(2));
+            }
+        }
+        return temp;
+    }
 
-
-    public ArrayList<Value> findChunks(String path) {
+    public ArrayList<Value> findChunks(String path)
+    {
         File file = new File(path);
         Mp3File song = null;
         String artistName = "";
@@ -78,23 +122,25 @@ public class BrokerHandlerThread extends Thread {
         }
         byte[] buf = new byte[512*1024];
         ArrayList<Value> chunks = new ArrayList<>();
-        try {
-            for (int readNum; (readNum = fis.read(buf)) != -1;) {
+        try
+        {
+            for (int readNum; (readNum = fis.read(buf)) != -1;)
+            {
                 ByteArrayOutputStream parts = new ByteArrayOutputStream();
                 parts.write(buf, 0, readNum);
                 try {
                     song = new Mp3File(path);
-                } catch (UnsupportedTagException | InvalidDataException | IOException e) {
+                } catch (UnsupportedTagException | InvalidDataException | IOException e){
                     e.printStackTrace();
                 }
-                if (song!=null && song.hasId3v1Tag()) {
+                if (song!=null && song.hasId3v1Tag()){
                     ID3v1 id3v1Tag = song.getId3v1Tag();
                     artistName = id3v1Tag.getArtist();
                     trackName = id3v1Tag.getTitle();
                     albumInfo = id3v1Tag.getAlbum();
                     genre = Integer.toString(id3v1Tag.getGenre());
                 }
-                if (song!=null && song.hasId3v2Tag()) {
+                if (song!=null && song.hasId3v2Tag()){
                     ID3v2 id3v2tag = song.getId3v2Tag();
                     artistName = id3v2tag.getArtist();
                     trackName = id3v2tag.getTitle();
@@ -105,7 +151,9 @@ public class BrokerHandlerThread extends Thread {
                 Value tempValue = new Value(tempMusicFile);
                 chunks.add(tempValue);
             }
-        } catch (IOException ex) {
+        } 
+        catch(IOException ex)
+        {
             ex.printStackTrace();
         }
         return chunks;
