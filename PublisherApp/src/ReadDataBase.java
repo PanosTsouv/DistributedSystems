@@ -52,7 +52,7 @@ public class ReadDataBase{
                             artistName = id3v2tag.getArtist();
                             trackName = id3v2tag.getTitle();
                         }
-                        if(artistName != null && artistName.length() >= 1)
+                        if(artistName != null && artistName.length() >= 1 && trackName != null)
                         {
                             if(artistName.charAt(0) >= startChar && artistName.charAt(0) <= endChar)
                             {
