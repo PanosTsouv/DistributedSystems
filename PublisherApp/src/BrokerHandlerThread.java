@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import com.mpatric.mp3agic.*;
 
@@ -90,9 +91,9 @@ public class BrokerHandlerThread extends Thread {
         }
     }
 
-    public ArrayList<String> songsOfSpecificArtist(String userArtist)
+    public HashSet<String> songsOfSpecificArtist(String userArtist)
     {
-        ArrayList<String> temp = new ArrayList<>();
+        HashSet<String> temp = new HashSet<>();
         for(ArrayList<String> element : publisher.getSongInfo())
         {
             if(element.get(1).equals(userArtist))
