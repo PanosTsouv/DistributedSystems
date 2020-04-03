@@ -4,6 +4,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 public class ActionsForClients extends Thread
@@ -166,7 +167,7 @@ public class ActionsForClients extends Thread
         brokerClient.getOutAsClient().writeObject("List");
         brokerClient.getOutAsClient().writeObject(userArtistName);
         brokerClient.getOutAsClient().flush();
-        ArrayList<String> temp =(ArrayList<String>)brokerClient.getInAsClient().readObject();
+        HashSet<String> temp =(HashSet<String>)brokerClient.getInAsClient().readObject();
         brokerClient.disconnect();
         System.out.println(temp);
 
