@@ -1,6 +1,8 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.HashSet;
+
 import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.player.Player;
 
@@ -32,6 +34,7 @@ public class ConsumerNode implements Consumer {
 
     private ArrayList<String> attributes = new ArrayList<>();
     private ArrayList<File> streaming = new ArrayList<>();
+    private HashSet<String> listOfSong = new HashSet<>();
 
     private Socket requestSocket = null;
     private ObjectOutputStream out = null;
@@ -60,12 +63,18 @@ public class ConsumerNode implements Consumer {
     {
         try
         {
+            boolean songExist = false;
             out.writeObject("register");
             out.writeObject(this.artistName);
             out.flush();
             System.out.println("The list of existing songs:");
             receiveTheListOfSong();
-            out.writeObject(getSongNameFromUser());
+            while (!songExist)// ask user for an existing artist
+            {
+                songName = getSongNameFromUser();
+                songExist = listOfSong.contains(songName);
+            }
+            out.writeObject(songName);
             new Thread()
             {
                 public void run()
@@ -177,7 +186,7 @@ public class ConsumerNode implements Consumer {
     @SuppressWarnings("unchecked")
     private void receiveTheListOfSong() throws ClassNotFoundException, IOException
     {
-        ArrayList<String> listOfSong = (ArrayList<String>) in.readObject();
+        listOfSong = (HashSet<String>) in.readObject();
         System.out.println(listOfSong);
     }
 
