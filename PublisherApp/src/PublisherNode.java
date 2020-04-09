@@ -101,20 +101,24 @@ public class PublisherNode implements Publisher{
         
         try
         {
-            MessageDigest msdDigest = MessageDigest.getInstance("SHA-1");
-            msdDigest.update(artistName.getArtistName().getBytes("UTF-8"), 0, artistName.getArtistName().length());
-            sha1 = new BigInteger(1, msdDigest.digest());
+            MessageDigest msdDigest = MessageDigest.getInstance("MD5");
+            byte[] messageDigest = msdDigest.digest(artistName.getArtistName().getBytes());
+            sha1 = new BigInteger(1, messageDigest);
         } 
-        catch (UnsupportedEncodingException | NoSuchAlgorithmException e)
+        catch (NoSuchAlgorithmException e)
         {
             e.printStackTrace();
         }
         artistHash = sha1.toString(10).substring(0,3);
-        artistHash = Integer.toString(Integer.parseInt(artistHash) % tempBrokerHashAsList.get(tempBrokerHashAsList.size()-1));
         
 
         for(int element : tempBrokerHashAsList)
         {
+            if(Integer.parseInt(artistHash) > tempBrokerHashAsList.get(tempBrokerHashAsList.size()-1))
+            {
+                brokerId = Integer.toString(tempBrokerHashAsMap.get(tempBrokerHashAsList.get(0)));
+                break;
+            }
             if(Integer.parseInt(artistHash) < element)
             {
                 brokerId = Integer.toString(tempBrokerHashAsMap.get(element));
