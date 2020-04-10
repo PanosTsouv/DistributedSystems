@@ -1,7 +1,6 @@
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
@@ -216,13 +215,13 @@ public class BrokerNode implements Broker {
     public void calculateKeys() {
         BigInteger sha1 = null;
         try {
-            MessageDigest msdDigest = MessageDigest.getInstance("SHA-1");
-            msdDigest.update((this.ownPort + this.ownServerIP).getBytes("UTF-8"), 0, (this.ownPort + this.ownServerIP).length());
-            sha1 = new BigInteger(1, msdDigest.digest());
-        } catch (UnsupportedEncodingException | NoSuchAlgorithmException e) {
+            MessageDigest msdDigest = MessageDigest.getInstance("MD5");
+            byte[] messageDigest = msdDigest.digest((this.serverIP + this.ownPort).getBytes());
+            sha1 = new BigInteger(1, messageDigest);
+        } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
-        this.hashBroker = sha1.toString(10).substring(0, 3);
+        this.hashBroker = sha1.toString().substring(0, 3);
     }
 
     @Override
