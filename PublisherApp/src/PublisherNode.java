@@ -218,7 +218,6 @@ public class PublisherNode implements Publisher{
             }
         }
     }
-    }
 
     //end a connection with server
     @Override
@@ -290,5 +289,15 @@ public class PublisherNode implements Publisher{
         {
 		    System.out.println("{Artist: " + entry.getKey() + " -> Broker " + entry.getValue() + "}");
         }
+    }
+
+    public void setServerIP(String serverIP)
+    {
+        this.serverIP = serverIP;
+    }
+
+    public void setPort(String port)
+    {
+        this.port = port;
     }
 }
