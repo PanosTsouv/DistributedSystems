@@ -160,44 +160,49 @@ public class ActionsForClients extends Thread
             return;
         }
         String artist = (String) in.readObject();
-        System.out.println(artist);
-
         userArtistName = new ArtistName(artist);
         initializeStreamsFromBrokersToSpecificPublisher();
         brokerClient.getOutAsClient().writeObject("List");
         brokerClient.getOutAsClient().writeObject(userArtistName);
         brokerClient.getOutAsClient().flush();
         HashSet<String> temp =(HashSet<String>)brokerClient.getInAsClient().readObject();
+        System.out.println("Server send a list with song of " + artist + " to " + consumerInfo.get(0));
         brokerClient.disconnect();
-        System.out.println(temp);
 
         out.writeObject(temp);
         out.flush();
         userSongName = (String) in.readObject();
         //doulevei
-        initializeStreamsFromBrokersToSpecificPublisher();
-        brokerClient.getOutAsClient().writeObject("Request");
-        
-        brokerClient.getOutAsClient().writeObject(userArtistName);
-        brokerClient.getOutAsClient().writeObject(userSongName);
-        brokerClient.getOutAsClient().flush();
-        System.out.println("Server part of broker :: Forward request to publisher");
-        Value tempval;
-        int chunksSize = (int) brokerClient.getInAsClient().readObject();
-        Value[] tempList = new Value[chunksSize];
-        System.out.println(chunksSize);
-        brokerServer.getSongsInCache().put(userSongName, tempList);
-        System.out.println("Server part of broker :: Start sending chunks to consumers");
-        new Thread() {
-            public void run() {
-                brokerServer.pull(userArtistName, userSongName, out);
-            }
-        }.start();
-        for (int i = 0; i < chunksSize; i++) {
-            tempval = (Value) brokerClient.getInAsClient().readObject();
-            brokerServer.getSongsInCache().get(userSongName)[i] = tempval;
+        if(brokerServer.getSongsInCache().get(userSongName) != null)
+        {
+            brokerServer.pull(userArtistName, userSongName, out);
         }
-        brokerClient.disconnect();
+        else
+        {
+            initializeStreamsFromBrokersToSpecificPublisher();
+            brokerClient.getOutAsClient().writeObject("Request");
+            
+            brokerClient.getOutAsClient().writeObject(userArtistName);
+            brokerClient.getOutAsClient().writeObject(userSongName);
+            brokerClient.getOutAsClient().flush();
+            System.out.println("Server part of broker :: Forward request to publisher");
+            Value tempval;
+            int chunksSize = (int) brokerClient.getInAsClient().readObject();
+            Value[] tempList = new Value[chunksSize];
+            System.out.println(chunksSize);
+            brokerServer.getSongsInCache().put(userSongName, tempList);
+            System.out.println("Server part of broker :: Start sending chunks to consumers");
+            new Thread() {
+                public void run() {
+                    brokerServer.pull(userArtistName, userSongName, out);
+                }
+            }.start();
+            for (int i = 0; i < chunksSize; i++) {
+                tempval = (Value) brokerClient.getInAsClient().readObject();
+                brokerServer.getSongsInCache().get(userSongName)[i] = tempval;
+            }
+            brokerClient.disconnect();
+        }
         String answerForUnregister = (String) in.readObject();
         if (answerForUnregister.equals("I want to unregister")) {
             brokerServer.getRegisteredUsers().remove(consumerInfo);
