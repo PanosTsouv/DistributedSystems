@@ -111,7 +111,7 @@ public class PublisherNode implements Publisher{
     public String hashTopic(ArtistName artistName) 
     {
         String artistHash;
-        BigInteger sha1 = null;
+        BigInteger md5 = null;
         String brokerId = "";
         HashMap<Integer,Integer> tempBrokerHashAsMap = new HashMap<>();
         ArrayList<Integer> tempBrokerHashAsList = new ArrayList<>();
@@ -127,13 +127,13 @@ public class PublisherNode implements Publisher{
         {
             MessageDigest msdDigest = MessageDigest.getInstance("MD5");
             byte[] messageDigest = msdDigest.digest(artistName.getArtistName().getBytes());
-            sha1 = new BigInteger(1, messageDigest);
+            md5 = new BigInteger(1, messageDigest);
         } 
         catch (NoSuchAlgorithmException e)
         {
             e.printStackTrace();
         }
-        artistHash = sha1.toString(10).substring(0,3);
+        artistHash = md5.toString(10).substring(0,3);
         
 
         for(int element : tempBrokerHashAsList)
