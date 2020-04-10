@@ -188,7 +188,37 @@ public class PublisherNode implements Publisher{
     }
 
     @Override
-    public void connect() throws IOException {}
+    public void connect() 
+    {
+        for(int i = 0; i < brokersInfo.size(); i++)
+        {
+            try
+            {
+                requestSocket = new Socket(brokersInfo.get(i).get(2), Integer.parseInt(brokersInfo.get(i).get(1)));
+                System.out.println("Client part of publisher :: Publisher " + this.publisherID + " is successfully connected with server with IP: " + brokersInfo.get(i).get(2) + " Port: " + brokersInfo.get(i).get(1));
+                out = new ObjectOutputStream(requestSocket.getOutputStream());
+                in = new ObjectInputStream(requestSocket.getInputStream());
+                out.writeObject("PublisherNode");
+                out.flush();
+                out.writeObject(attributes);
+                out.flush();
+                System.out.println("Client part of publisher :: Sends its type");
+                out.writeObject(uniqueArtistToBroker);
+                out.flush();
+                System.out.println("Client part of publisher :: Sends a HashMap {Key:Artist , Value:BrokerID}");
+                disconnect();
+            } 
+            catch (UnknownHostException unknownHost) 
+            {
+                System.err.println("You are trying to connect to an unknown host!");
+            } 
+            catch (IOException ioException) 
+            {
+                ioException.printStackTrace();
+            }
+        }
+    }
+    }
 
     //end a connection with server
     @Override
@@ -259,37 +289,6 @@ public class PublisherNode implements Publisher{
         for(Map.Entry<String, String> entry : uniqueArtistToBroker.entrySet()) 
         {
 		    System.out.println("{Artist: " + entry.getKey() + " -> Broker " + entry.getValue() + "}");
-        }
-    }
-
-    public void sendInitialDataToBrokers()
-    {
-        for(int i = 0; i < brokersInfo.size(); i++)
-        {
-            try
-            {
-                requestSocket = new Socket(brokersInfo.get(i).get(2), Integer.parseInt(brokersInfo.get(i).get(1)));
-                System.out.println("Client part of publisher :: Publisher " + this.publisherID + " is successfully connected with server with IP: " + brokersInfo.get(i).get(2) + " Port: " + brokersInfo.get(i).get(1));
-                out = new ObjectOutputStream(requestSocket.getOutputStream());
-                in = new ObjectInputStream(requestSocket.getInputStream());
-                out.writeObject("PublisherNode");
-                out.flush();
-                out.writeObject(attributes);
-                out.flush();
-                System.out.println("Client part of publisher :: Sends its type");
-                out.writeObject(uniqueArtistToBroker);
-                out.flush();
-                System.out.println("Client part of publisher :: Sends a HashMap {Key:Artist , Value:BrokerID}");
-                disconnect();
-            } 
-            catch (UnknownHostException unknownHost) 
-            {
-                System.err.println("You are trying to connect to an unknown host!");
-            } 
-            catch (IOException ioException) 
-            {
-                ioException.printStackTrace();
-            }
         }
     }
 }
