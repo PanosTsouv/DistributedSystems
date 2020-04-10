@@ -194,10 +194,9 @@ public class PublisherNode implements Publisher{
         {
             try
             {
-                requestSocket = new Socket(brokersInfo.get(i).get(2), Integer.parseInt(brokersInfo.get(i).get(1)));
-                System.out.println("Client part of publisher :: Publisher " + this.publisherID + " is successfully connected with server with IP: " + brokersInfo.get(i).get(2) + " Port: " + brokersInfo.get(i).get(1));
-                out = new ObjectOutputStream(requestSocket.getOutputStream());
-                in = new ObjectInputStream(requestSocket.getInputStream());
+                setServerIP(brokersInfo.get(i).get(2));
+                setPort(brokersInfo.get(i).get(1));
+                init();
                 out.writeObject("PublisherNode");
                 out.flush();
                 out.writeObject(attributes);
