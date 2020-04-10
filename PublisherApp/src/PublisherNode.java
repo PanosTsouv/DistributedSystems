@@ -5,6 +5,25 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
+//@param publisherID : unique identifier
+//@param ownPort : port which publisher listens
+//@param ownServerIP : client needs to know this ip to connect with publisher
+//@param publisherConnectFirstTime : true(publisher dont have the broker info)
+//@param serverIP : the ip of server which client part of publisher want connect
+//@param port : the port of server which client part of publisher want connect
+//@param path : path of database 
+//@param start,end : range of artist which publisher is responsible
+//@param requestSocket : is the connection between server-client....client part of publisher open a socket to connect with server
+//@param out,in : client part of publisher use these streams to communicate with server
+
+//IDEA:
+// (1)   Publisher connects to a random server ->
+// (2)-> Receives a list with all brokers(servers) and their attributes(serverID-serverIP-port)
+// (3)-> calculates servers hash(serverIP+port) values, artists hash values and create a hashMap with key(ArtistName) and value(BrokerID)->
+// (4)-> sends this hashMap to all servers so they can forward a request to a specific publisher ->
+// (5)-> publisher accepts a connection, creates a new thread and does 2 jobs 1)return a list with all songs of a specific artist 
+//       2)handle the request,create chunks and push them to server which is responsible for this publisher
+
 public class PublisherNode implements Publisher{
     private String publisherID;
     private String ownPort;
@@ -83,6 +102,11 @@ public class PublisherNode implements Publisher{
         return this.songsInfo;
     }
 
+    //take as input an artistName ,calculate hash value and return the if of broker whick is responsible for this artist
+    //@param tempBrokerHashAsList contains brokes's hash values which we sort 
+    //@param tempBrokerHashAsMap contains brokes's hash values as key and brokerID as value so we know after sort which broker has a specifiq value
+    //Second for loop find the first broker in sorted list that his hash value is bigger than artist'hash value 
+    //if all hash values of brokers is lower than artist hash value then the method return the broker with the lowest hash value
     @Override
     public String hashTopic(ArtistName artistName) 
     {
@@ -128,6 +152,7 @@ public class PublisherNode implements Publisher{
         return brokerId;
     }
 
+    //forward a chunk to a specific broker
     @Override
     public void push(ArtistName artistName, Value musicFile, ObjectOutputStream outToBroker) throws IOException
     {
@@ -135,6 +160,7 @@ public class PublisherNode implements Publisher{
         outToBroker.flush();
     }
 
+    //open a connection with server
     @Override
     public void init()
     {
@@ -164,6 +190,7 @@ public class PublisherNode implements Publisher{
     @Override
     public void connect() throws IOException {}
 
+    //end a connection with server
     @Override
     public void disconnect() 
     {
@@ -180,6 +207,7 @@ public class PublisherNode implements Publisher{
         }
     }
 
+    //create a new thread every time the server part of publisher receives a request
     public void acceptConnectionBroker(Socket requestSocket, PublisherNode publisher) {
         System.out.println("Server part of publisher :: Broker Client detected");
         BrokerHandlerThread action = new BrokerHandlerThread(requestSocket, publisher, this.songsInfo);
@@ -187,6 +215,7 @@ public class PublisherNode implements Publisher{
         new Thread(action).start();
     }
 
+    //open the server part of publisher
     public void openServer()
     {
         try
@@ -216,6 +245,8 @@ public class PublisherNode implements Publisher{
         }
     }
 
+    //every new publisher read the database and finds the artists which he is responsible
+    //create a hashMap with artistName as key and brokerID as value
     public void calculateBrokerArtistMap()
     {
         ReadDataBase a = new ReadDataBase(this.path, this.start, this.end);
