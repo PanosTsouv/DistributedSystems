@@ -3,13 +3,16 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
-import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 
 public class BrokerNode implements Broker {
@@ -40,10 +43,18 @@ public class BrokerNode implements Broker {
 
         this.brokerID = brokerID;
         this.ownPort = ownPort;
+        Enumeration<NetworkInterface> nets = null;
         try {
-            this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
-            e.printStackTrace();
+            nets = NetworkInterface.getNetworkInterfaces();
+        } catch (SocketException e2) {
+            e2.printStackTrace();
+        }
+        for (NetworkInterface netint : Collections.list(nets))
+        {
+            if (netint.getName().equals("eth1"))
+            {
+                this.ownServerIP = netint.getInterfaceAddresses().get(0).getAddress().getHostAddress();
+            }
         }
         this.numberOfBrokers = numberOfBrokers;
         calculateKeys();
