@@ -6,6 +6,7 @@ import java.util.HashSet;
 import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.player.Player;
 
+
 //@serverIP : is the IP of server which the consumer connect
 //@port : is the port of server which the consumer connect
 //@attributes : contain (userName and Password)....server can take these attributes and save a user to a register list
@@ -287,11 +288,10 @@ public class ConsumerNode implements Consumer {
             int k = path.indexOf(prefix);
             if (k != -1)
             {
-                path.delete(k-1, k + path.length());
+                path.delete(k-(Integer.toString(count).length()), k + path.length());
             }
             path.append(count);
             path.append(".mp3");
-            System.out.println("Waiting to receive song");
             Value temp = (Value)in.readObject();
             System.out.println("The part of song which Client receive save at " + path);
             someFile = new File(path.toString());
