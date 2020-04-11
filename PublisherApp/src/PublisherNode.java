@@ -190,31 +190,25 @@ public class PublisherNode implements Publisher{
     @Override
     public void connect() 
     {
-        for(int i = 0; i < brokersInfo.size(); i++)
+        try
         {
-            try
-            {
-                setServerIP(brokersInfo.get(i).get(2));
-                setPort(brokersInfo.get(i).get(1));
-                init();
-                out.writeObject("PublisherNode");
-                out.flush();
-                out.writeObject(attributes);
-                out.flush();
-                System.out.println("Client part of publisher :: Sends its type");
-                out.writeObject(uniqueArtistToBroker);
-                out.flush();
-                System.out.println("Client part of publisher :: Sends a HashMap {Key:Artist , Value:BrokerID}");
-                disconnect();
-            } 
-            catch (UnknownHostException unknownHost) 
-            {
-                System.err.println("You are trying to connect to an unknown host!");
-            } 
-            catch (IOException ioException) 
-            {
-                ioException.printStackTrace();
-            }
+            out.writeObject("PublisherNode");
+            out.flush();
+            out.writeObject(attributes);
+            out.flush();
+            System.out.println("Client part of publisher :: Sends its type");
+            out.writeObject(uniqueArtistToBroker);
+            out.flush();
+            System.out.println("Client part of publisher :: Sends a HashMap {Key:Artist , Value:BrokerID}");
+            disconnect();
+        } 
+        catch (UnknownHostException unknownHost) 
+        {
+            System.err.println("You are trying to connect to an unknown host!");
+        } 
+        catch (IOException ioException) 
+        {
+            ioException.printStackTrace();
         }
     }
 
