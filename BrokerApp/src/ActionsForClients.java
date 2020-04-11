@@ -166,13 +166,13 @@ public class ActionsForClients extends Thread
         brokerClient.getOutAsClient().writeObject(userArtistName);
         brokerClient.getOutAsClient().flush();
         HashSet<String> temp =(HashSet<String>)brokerClient.getInAsClient().readObject();
-        System.out.println("Server send a list with song of " + artist + " to " + consumerInfo.get(0));
+        System.out.println("Server part of broker :: Send a list with song of " + artist + " to " + consumerInfo.get(0));
         brokerClient.disconnect();
 
         out.writeObject(temp);
         out.flush();
         userSongName = (String) in.readObject();
-        //doulevei
+
         if(brokerServer.getSongsInCache().get(userSongName) != null)
         {
             brokerServer.pull(userArtistName, userSongName, out);
@@ -185,13 +185,12 @@ public class ActionsForClients extends Thread
             brokerClient.getOutAsClient().writeObject(userArtistName);
             brokerClient.getOutAsClient().writeObject(userSongName);
             brokerClient.getOutAsClient().flush();
-            System.out.println("Server part of broker :: Forward request to publisher");
+            System.out.println("Client part of broker :: Forward request to publisher");
             Value tempval;
             int chunksSize = (int) brokerClient.getInAsClient().readObject();
             Value[] tempList = new Value[chunksSize];
-            System.out.println(chunksSize);
             brokerServer.getSongsInCache().put(userSongName, tempList);
-            System.out.println("Server part of broker :: Start sending chunks to consumers");
+            System.out.println("Server part of broker :: Start sending " + chunksSize + " chunks to consumers");
             new Thread() {
                 public void run() {
                     brokerServer.pull(userArtistName, userSongName, out);
