@@ -51,9 +51,10 @@ public class BrokerNode implements Broker {
         }
         for (NetworkInterface netint : Collections.list(nets))
         {
-            if (netint.getName().equals("eth1") && netint.getInterfaceAddresses().size()>0)
+            if (netint.getName().equals("eth1") && netint.getInterfaceAddresses().size() > 0)
             {
                 this.ownServerIP = netint.getInterfaceAddresses().get(0).getAddress().getHostAddress();
+                break;
             }
 			else
 			{
