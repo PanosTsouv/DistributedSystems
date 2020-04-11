@@ -1,11 +1,20 @@
-public class ConsumerMain{
-    
-    public static void main(String[] args) 
-    {
-        ConsumerNode consumer = new ConsumerNode("Panos", "123456789", "192.168.247.113", "4321");
+public class ConsumerMain {
+
+    public static void main(String[] args) {
+        ConsumerNode consumer = new ConsumerNode(args[0], args[1], args[2], args[3]);
         consumer.init();
         consumer.connect();
         consumer.receiveInfoObject();
         consumer.findTheRightBroker();
+        consumer.songRequest();
+        if (consumer.getUserChoice().equals("0")) 
+        {
+            consumer.userSelectLive();
+        }
+        else 
+        {
+            consumer.userSelectOffline();
+        }
+        consumer.unregister();
     }
 }

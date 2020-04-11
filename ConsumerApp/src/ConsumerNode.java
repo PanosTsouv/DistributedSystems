@@ -6,16 +6,17 @@ import java.util.HashSet;
 import javazoom.jl.decoder.JavaLayerException;
 import javazoom.jl.player.Player;
 
-
-//@serverIP : is the IP of server which the consumer connect
-//@port : is the port of server which the consumer connect
-//@attributes : contain (userName and Password)....server can take these attributes and save a user to a register list
-//@requestSocket : is the connection between server-client....client open a socket to connect with server
-//@out@in : client use these streams to communicate with server
+//@param serverIP : is the IP of server which the consumer connect
+//@param port : is the port of server which the consumer connect
+//@param connectForFirstTime : true(user dont have info for brokers)
+//@param attributes : contain (userName and Password)....server can take these attributes and save a user to a register list
+//@paramlistOfSong : contain all song of a artist which user request
+//@param requestSocket : is the connection between server-client....client open a socket to connect with server
+//@param out,in : client use these streams to communicate with server
 
 //IDEA:
 // (1)   Consumer make a random server connect ->
-// (2)-> Server send back Info object(message) which contains a list with all brokers(servers) and their attributes(serverID-serverIP-Port) --- 
+// (2)-> Server send back Info object(message) which contains a list with all brokers(servers) and their attributes(serverID-serverIP-port) --- 
 //       a hashMap with all artistNames as KEYS and brokerID(server) as values ->
 // (3)-> we put from this hashMap an artistName which consumer(user) choose and we take the brokerID(serverID) which is responsible for this artistName ->
 // (4)-> if this random server contain user's artistName we register this user to this broker(server) and make the request
@@ -45,8 +46,7 @@ public class ConsumerNode implements Consumer {
     // has access to this list
     // IMPORTANT -- if you want server know a attribute of consumer you should add
     // it to the attributes list
-    public ConsumerNode(String consumerName, String consumerPassword, String serverIP, String port)
-    {
+    public ConsumerNode(String consumerName, String consumerPassword, String serverIP, String port) {
         this.consumerName = consumerName;
         this.consumerPassword = consumerPassword;
         this.serverIP = serverIP;
@@ -58,33 +58,66 @@ public class ConsumerNode implements Consumer {
         attributes.add(this.connectForFirstTime);
     }
 
-    // we use register method when the broker, which user connect for first time,is wrong
-    @Override
-    public void register()
-    {
-        try
-        {
+    public void songRequest() {
+        try {
             boolean songExist = false;
-            out.writeObject("register");
-            out.writeObject(this.artistName);
-            out.flush();
-            System.out.println("The list of existing songs:");
-            receiveTheListOfSong();
             while (!songExist)// ask user for an existing artist
             {
                 songName = getSongNameFromUser();
                 songExist = listOfSong.contains(songName);
             }
             out.writeObject(songName);
-            new Thread()
-            {
-                public void run()
-                {
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void userSelectLive() {
+        try {
+            Thread thread = new Thread() {
+                public void run() {
                     playData();
                 }
-            }.start();
+            };
+            thread.start();
+
             writeData();//receive and write the song
-            unregister();
+
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        catch (IOException | ClassNotFoundException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    public void userSelectOffline()
+    {
+        try
+        {
+            writeData();//receive and write the song
+        }
+        catch (IOException | ClassNotFoundException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    // we use register method when the broker, which user connect for first time,is wrong
+    @Override
+    public void register()
+    {
+        try
+        {
+            out.writeObject("register");
+            out.writeObject(this.artistName);
+            out.flush();
+            System.out.println("The list of existing songs:");
+            receiveTheListOfSong();
         }
         catch (IOException | ClassNotFoundException e)
         {
@@ -157,16 +190,18 @@ public class ConsumerNode implements Consumer {
         player.close();
     }
 
+
+    // open a connection with a broker(server)
+    // initialize output-input stream
     @Override
     public void init()
     {
         try
         {
-            requestSocket = new Socket(serverIP, Integer.parseInt(port));// open a connection with a broker(server)
-            System.out.println(
-                    "Server which Client try to connect has ServerIP: " + this.serverIP + " Port: " + this.port);// (debug)
-            out = new ObjectOutputStream(requestSocket.getOutputStream());// initialize output stream
-            in = new ObjectInputStream(requestSocket.getInputStream());// initialize input stream
+            requestSocket = new Socket(serverIP, Integer.parseInt(port));
+            System.out.println("Server which Client try to connect has ServerIP: " + this.serverIP + " Port: " + this.port);// (debug)
+            out = new ObjectOutputStream(requestSocket.getOutputStream());
+            in = new ObjectInputStream(requestSocket.getInputStream());
         }
         catch(UnknownHostException unknownHost)
         {
@@ -312,6 +347,7 @@ public class ConsumerNode implements Consumer {
         fos.close();
     }
 
+    //close a connection with
     @Override
     public void disconnect() 
     {
@@ -338,6 +374,7 @@ public class ConsumerNode implements Consumer {
         this.serverIP = serverIP;
     }
 
+    //user gives an artist
     private String getArtistNameFromUser()
     {
         System.out.println("Give an existing artist from the list:");
@@ -345,10 +382,18 @@ public class ConsumerNode implements Consumer {
         return this.artistName;
     }
 
+    //user gives a song
     private String getSongNameFromUser()
     {
         System.out.println("Give an existing song from the list:");
         this.songName =  System.console().readLine();
         return this.songName;
+    }
+
+    public String getUserChoice()
+    {
+        System.out.println("Press 0 for live streaming");
+        System.out.println("Press 1 to download the song and disconnect");
+        return System.console().readLine();
     }
 }
