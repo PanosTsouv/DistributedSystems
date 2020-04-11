@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigInteger;
+import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -50,10 +51,21 @@ public class BrokerNode implements Broker {
         }
         for (NetworkInterface netint : Collections.list(nets))
         {
-            if (netint.getName().equals("eth1"))
+            if (netint.getName().equals("eth1") && netint.getInterfaceAddresses().size()>0)
             {
                 this.ownServerIP = netint.getInterfaceAddresses().get(0).getAddress().getHostAddress();
             }
+			else
+			{
+				try 
+				{
+					this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
+				} 
+				catch (UnknownHostException e) 
+				{
+					e.printStackTrace();
+				}
+			}
         }
         this.numberOfBrokers = numberOfBrokers;
         calculateKeys();
