@@ -48,16 +48,13 @@ public class BrokerHandlerThread extends Thread {
                 out.writeObject(chunks.size());
                 while(!chunks.isEmpty())
                 {
-                    if(userArtist.getArtistName().equals("Kevin MacLeod"))
+                    try
                     {
-                        try
-                        {
-                            Thread.sleep(3000);
-                        }
-                        catch (InterruptedException ie)
-                        {
-                            Thread.currentThread().interrupt();
-                        }
+                        Thread.sleep(2000);
+                    }
+                    catch (InterruptedException ie)
+                    {
+                        Thread.currentThread().interrupt();
                     }
                     this.publisher.push(userArtist, chunks.remove(0), out);
                 }
