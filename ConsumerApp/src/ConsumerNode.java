@@ -27,12 +27,15 @@ public class ConsumerNode implements Consumer {
 
     private String consumerName;
     private String consumerPassword;
+    private String consumerEmail;
     private String serverIP;
     private String port;
     private String connectForFirstTime;
     private String artistName;
     private String songName;
     private Info answer = null;
+    private String loginEmail;
+    private String loginPassword;
 
     private ArrayList<String> attributes = new ArrayList<>();
     private ArrayList<File> streaming = new ArrayList<>();
@@ -46,9 +49,11 @@ public class ConsumerNode implements Consumer {
     // has access to this list
     // IMPORTANT -- if you want server know a attribute of consumer you should add
     // it to the attributes list
-    public ConsumerNode(String consumerName, String consumerPassword, String serverIP, String port) {
+    public ConsumerNode(String consumerEmail, String consumerName, String consumerPassword, String serverIP,
+            String port) {
         this.consumerName = consumerName;
         this.consumerPassword = consumerPassword;
+        this.consumerEmail = consumerEmail;
         this.serverIP = serverIP;
         this.port = port;
         this.connectForFirstTime = "true";
@@ -56,13 +61,14 @@ public class ConsumerNode implements Consumer {
         attributes.add(this.consumerName);
         attributes.add(this.consumerPassword);
         attributes.add(this.connectForFirstTime);
+        attributes.add(this.consumerEmail);
     }
 
+    // ask user for an existing song
     public void songRequest() {
         try {
             boolean songExist = false;
-            while (!songExist)// ask user for an existing artist
-            {
+            while (!songExist) {
                 songName = getSongNameFromUser();
                 songExist = listOfSong.contains(songName);
             }
@@ -72,6 +78,7 @@ public class ConsumerNode implements Consumer {
         }
     }
 
+    // play and write the parts of song that user ask
     public void userSelectLive() {
         try {
             Thread thread = new Thread() {
@@ -81,55 +88,47 @@ public class ConsumerNode implements Consumer {
             };
             thread.start();
 
-            writeData();//receive and write the song
+            writeData();// receive and write the song
 
             try {
                 thread.join();
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        }
-        catch (IOException | ClassNotFoundException e)
-        {
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
 
-    public void userSelectOffline()
-    {
-        try
-        {
-            writeData();//receive and write the song
-        }
-        catch (IOException | ClassNotFoundException e)
-        {
+    // receive and write the song
+    public void userSelectOffline() {
+        try {
+            writeData();
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
 
-    // we use register method when the broker, which user connect for first time,is wrong
+    // we use register method when the broker, which user connect for first time,is
+    // wrong
     @Override
-    public void register()
-    {
-        try
-        {
+    public void register() {
+        try {
             out.writeObject("register");
             out.writeObject(this.artistName);
             out.flush();
             System.out.println("The list of existing songs:");
             receiveTheListOfSong();
-        }
-        catch (IOException | ClassNotFoundException e)
-        {
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
 
+    // user informs broker that he want to unregister so broker remove him
+    // user closes his connection
     @Override
-    public void unregister()
-    {
-        try
-        {
+    public void unregister() {
+        try {
             out.writeObject("I want to unregister");
             String answer = (String) in.readObject();
             System.out.println(answer);
@@ -137,23 +136,17 @@ public class ConsumerNode implements Consumer {
             out.close();
             requestSocket.close();
             System.out.println("Client unregister from server...");
-        }
-        catch(IOException | ClassNotFoundException ioException)
-        {
+        } catch (IOException | ClassNotFoundException ioException) {
             ioException.printStackTrace();
         }
     }
 
     @Override
-    public void playData()
-    {
-        while (streaming.isEmpty())
-        {
-            try
-            {
+    public void playData() {
+        while (streaming.isEmpty()) {
+            try {
                 Thread.sleep(100);
-            } catch (InterruptedException e)
-            {
+            } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
@@ -163,77 +156,63 @@ public class ConsumerNode implements Consumer {
         BufferedInputStream bis = null;
         Player player = null;
 
-        while (count != streaming.size())
-        {
-            try
-            {
+        while (count != streaming.size()) {
+            try {
                 fis = new FileInputStream(this.streaming.get(count).getPath());
                 bis = new BufferedInputStream(fis);
                 player = new Player(bis);
                 player.play();
-            }
-            catch (JavaLayerException | FileNotFoundException e)
-            {
+            } catch (JavaLayerException | FileNotFoundException e) {
                 e.printStackTrace();
             }
             count++;
         }
-        try
-        {
+        try {
             fis.close();
             bis.close();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
         player.close();
     }
 
-
     // open a connection with a broker(server)
     // initialize output-input stream
     @Override
-    public void init()
-    {
-        try
-        {
+    public void init() {
+        try {
             requestSocket = new Socket(serverIP, Integer.parseInt(port));
-            System.out.println("Server which Client try to connect has ServerIP: " + this.serverIP + " Port: " + this.port);// (debug)
+            System.out.println(
+                    "Server which Client try to connect has ServerIP: " + this.serverIP + " Port: " + this.port);// (debug)
             out = new ObjectOutputStream(requestSocket.getOutputStream());
             in = new ObjectInputStream(requestSocket.getInputStream());
-        }
-        catch(UnknownHostException unknownHost)
-        {
+        } catch (UnknownHostException unknownHost) {
             System.err.println("You are trying to connect to an unknown host!");
-        }
-        catch(IOException ioException)
-        {
-            ioException.printStackTrace();
+            System.exit(1);
+        } catch (IOException ioException) {
+            System.err.println("You are trying to connect to an offline server.Check the server IP and port");
+            System.exit(1);
         }
     }
 
     @Override
-    public ArrayList<ArrayList<String>> getBrokersInfo()
-    {
+    public ArrayList<ArrayList<String>> getBrokersInfo() {
         return brokersInfo;
     }
 
     @SuppressWarnings("unchecked")
-    private void receiveTheListOfSong() throws ClassNotFoundException, IOException
-    {
+    private void receiveTheListOfSong() throws ClassNotFoundException, IOException {
         listOfSong = (HashSet<String>) in.readObject();
         System.out.println(listOfSong);
     }
 
-    private boolean isTheRightBroker(String tempBrokerId)
-    {
-        for (ArrayList<String> element : brokersInfo)// ckeck if the random server is right if not disconnect and connect to right server
-        {
-            if (element.get(0).equals(tempBrokerId))
-            {
-                if (element.get(1).equals(this.port) && element.get(2).equals(this.serverIP))// ckeck if the random broker at start is the correct broker
-                {
+    // ckeck if the random server is right if not disconnect and connect to right
+    // server
+    // ckeck if the random broker at start is the correct broker
+    private boolean isTheRightBroker(String tempBrokerId) {
+        for (ArrayList<String> element : brokersInfo) {
+            if (element.get(0).equals(tempBrokerId)) {
+                if (element.get(1).equals(this.port) && element.get(2).equals(this.serverIP)) {
                     return true;
                 }
                 setPort(element.get(1));
@@ -243,68 +222,94 @@ public class ConsumerNode implements Consumer {
         return false;
     }
 
-    public void findTheRightBroker()
-    {
+    public void findTheRightBroker() {
         String tempBrokerId = null;
 
         while (tempBrokerId == null)// ask user for an existing artist
         {
             tempBrokerId = answer.getArtistToBroker().get(getArtistNameFromUser());
         }
-        if(isTheRightBroker(tempBrokerId))
-        {
+        if (isTheRightBroker(tempBrokerId)) {
             register();
-        }
-        else
-        {
-            try
-            {
+        } else {
+            try {
                 out.writeObject("disconnect");
                 out.flush();
                 disconnect();
                 init();
                 connect();
                 register();
-            }
-            catch(IOException e)
-            {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
     }
 
-    public void receiveInfoObject()
-    {
-        try
-        {
-            answer = (Info)in.readObject();//Info object is a message which contains broker List with broker's attributes
+    // Info object is a message which contains broker List with broker's attributes
+    public void receiveInfoObject() {
+        try {
+            answer = (Info) in.readObject();
             brokersInfo.addAll(answer.getBrokers());
             System.out.println("The list with online brokers when consumer connect:");
-            System.out.println(brokersInfo);//(debug)
+            System.out.println(brokersInfo);// (debug)
             System.out.println("The list with all existing artist at system:");
-            System.out.println(answer.getArtistToBroker());//(debug)
+            System.out.println(answer.getArtistToBroker());// (debug)
             this.connectForFirstTime = "false";
             attributes.set(2, "false");
-        }
-        catch (IOException | ClassNotFoundException e)
-        {
+        } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
 
+    // send user type(consumer) and his attributes
     @Override
-    public void connect() 
-    {
-        try
-        {
+    public void connect() {
+        try {
             out.writeObject("ConsumerNode");
             out.writeObject(attributes);
             out.flush();
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    public void login() {
+        System.out.println("USER LOGIN");
+        setEmailFromUser();
+        setPasswordFromUser();
+    }
+
+    public boolean sendUserLoginInfo(){
+        System.out.println();
+        int count = 3;
+        while(count != -1)
+        {
+            try {
+                out.writeObject(this.loginEmail);
+                out.writeObject(this.loginPassword);
+                String valid =(String) in.readObject();
+                if(valid.equals("Valid login"))
+                {
+                    return true;
+                }
+                else
+                {
+                    if(count == 0)
+                    {
+                        break;
+                    }
+                    System.out.println("Invalid login.Try to login again.");
+                    System.out.println(count + " attempts remain");
+                    setEmailFromUser();
+                    setPasswordFromUser();
+                    count =(int) in.readObject();
+                }
+            } catch (ClassNotFoundException | IOException e) {
+                e.printStackTrace();
+            }
+        }
+        disconnect();
+        return false;
     }
 
     public void writeData() throws ClassNotFoundException, IOException
@@ -347,7 +352,7 @@ public class ConsumerNode implements Consumer {
         fos.close();
     }
 
-    //close a connection with
+    //close a connection with server
     @Override
     public void disconnect() 
     {
@@ -356,12 +361,24 @@ public class ConsumerNode implements Consumer {
             in.close(); 
             out.close();
             requestSocket.close();
-            System.out.println("Client end first connection with server...");
+            System.out.println("Consumer end connection with server...");
         } 
         catch(IOException ioException) 
         {
             ioException.printStackTrace();
         }
+    }
+
+    public void setEmailFromUser()
+    {
+        System.out.println("Give your email address:");
+        this.loginEmail = System.console().readLine();
+    }
+
+    public void setPasswordFromUser()
+    {
+        System.out.println("Give your password:");
+        this.loginPassword = System.console().readLine();
     }
 
     public void setPort(String port)
@@ -390,10 +407,11 @@ public class ConsumerNode implements Consumer {
         return this.songName;
     }
 
+    //user gives his choice
     public String getUserChoice()
     {
         System.out.println("Press 0 for live streaming");
-        System.out.println("Press 1 to download the song and disconnect");
+        System.out.println("Press anything else to download the song and disconnect");
         return System.console().readLine();
     }
 }
