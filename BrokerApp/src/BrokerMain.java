@@ -1,3 +1,6 @@
+import java.io.IOException;
+import java.net.UnknownHostException;
+
 public class BrokerMain
 {
     public static void main(String[] args) 
@@ -12,9 +15,31 @@ public class BrokerMain
         }.start();
         for(int i = 0; i < broker.getNumbersOfBroker()-1; i++)
         {
-            broker.setConnectionServerIP();
-            broker.setConnectionPort();
-            broker.init();
+            while(true)
+            {
+                try
+                {
+                    broker.setConnectionServerIP();
+                    broker.setConnectionPort();
+                    broker.init();
+                    break;
+                }
+                catch(UnknownHostException unknownHost)
+                {
+                    System.err.println("You are trying to connect to an unknown host!");
+                    System.out.println("Give us again connection settings");
+                }
+                catch(IOException ioException)
+                {
+                    System.err.println("You are trying to connect to an offline server or connection settings are wrong.Check the server IP and port");
+                    System.out.println("Give us again connection settings");
+                }
+                catch(NumberFormatException numberFormatException)
+                {
+                    System.err.println("Port should be number");
+                    System.out.println("Give us again connection settings");
+                }
+            }
             broker.connectWithBrokers();
         }
     }
