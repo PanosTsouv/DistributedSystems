@@ -87,22 +87,11 @@ public class BrokerNode implements Broker {
     /////////////////////////////////////////////
 
     @Override
-    public void init() {
-        try 
-        {
-            connectionAsClient = new Socket(this.serverIP, Integer.parseInt(this.port));
-            outAsClient = new ObjectOutputStream(connectionAsClient.getOutputStream());
-            inAsClient = new ObjectInputStream(connectionAsClient.getInputStream());
-            System.out.println("Client part of Broker :: Connected.");
-        } 
-        catch(UnknownHostException unknownHost)
-        {
-            System.err.println("You are trying to connect to an unknown host!");
-        }
-        catch(IOException ioException)
-        {
-            ioException.printStackTrace();
-        }
+    public void init() throws IOException,UnknownHostException,NumberFormatException{
+        connectionAsClient = new Socket(this.serverIP, Integer.parseInt(this.port));
+        outAsClient = new ObjectOutputStream(connectionAsClient.getOutputStream());
+        inAsClient = new ObjectInputStream(connectionAsClient.getInputStream());
+        System.out.println("Client part of Broker :: Connected.");
     }
 
     @Override
@@ -283,7 +272,7 @@ public class BrokerNode implements Broker {
         return registeredPublishers;
     }
 
-    public ArrayList<ArrayList<String>> getRegisteredUsers()
+    public HashMap<String, ArrayList<String>> getRegisteredUsers()
     {
         return registeredUsers;
     }
