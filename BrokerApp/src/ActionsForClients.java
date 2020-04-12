@@ -2,13 +2,13 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
-public class ActionsForClients extends Thread
-{
+public class ActionsForClients extends Thread {
 
     ObjectInputStream in;
     ObjectOutputStream out;
@@ -159,6 +159,8 @@ public class ActionsForClients extends Thread
         {
             return;
         }
+        brokerServer.getRegisteredUsers().put(consumerInfo.get(3), consumerInfo);
+        System.out.println(brokerServer.getRegisteredUsers());
         String artist = (String) in.readObject();
         userArtistName = new ArtistName(artist);
         initializeStreamsFromBrokersToSpecificPublisher();
@@ -172,6 +174,7 @@ public class ActionsForClients extends Thread
         out.writeObject(temp);
         out.flush();
         userSongName = (String) in.readObject();
+        if(!ckeckUserLogin()){return;};
 
         if(brokerServer.getSongsInCache().get(userSongName) != null)
         {
@@ -181,7 +184,7 @@ public class ActionsForClients extends Thread
         {
             initializeStreamsFromBrokersToSpecificPublisher();
             brokerClient.getOutAsClient().writeObject("Request");
-            
+
             brokerClient.getOutAsClient().writeObject(userArtistName);
             brokerClient.getOutAsClient().writeObject(userSongName);
             brokerClient.getOutAsClient().flush();
@@ -204,8 +207,9 @@ public class ActionsForClients extends Thread
         }
         String answerForUnregister = (String) in.readObject();
         if (answerForUnregister.equals("I want to unregister")) {
-            brokerServer.getRegisteredUsers().remove(consumerInfo);
+            brokerServer.getRegisteredUsers().remove(consumerInfo.get(3));
         }
+        System.out.println(brokerServer.getRegisteredUsers());
         out.writeObject("You can disconnect");
         out.flush();
     }
@@ -216,6 +220,46 @@ public class ActionsForClients extends Thread
         brokerServer.getRegisteredPublishers().get(tempPublisherID);
         brokerClient.setServerIP(brokerServer.getRegisteredPublishers().get(tempPublisherID).get(1));
         brokerClient.setPort(brokerServer.getRegisteredPublishers().get(tempPublisherID).get(2));
-        brokerClient.init();
+        try 
+        {
+            brokerClient.init();
+        }
+        catch (UnknownHostException unknownHost)
+        {
+            System.err.println("You are trying to connect to an unknown host!");
+        } 
+        catch (IOException | NumberFormatException ioException)
+        {
+            System.err.println(ioException);
+        }
+    }
+
+    public boolean ckeckUserLogin() {
+        int count = 3;
+        while(count != -1)
+        {
+            try {
+                String tempUserEmail = (String) in.readObject();
+                String tempUserPassword = (String) in.readObject();
+                if (brokerServer.getRegisteredUsers().containsKey(tempUserEmail))
+                {
+                    if(brokerServer.getRegisteredUsers().get(tempUserEmail).get(1).equals(tempUserPassword))
+                    {
+                        out.writeObject("Valid login");
+                        return true;
+                    }
+                }
+                out.writeObject("Invalid login");
+                count--;
+                if(count != -1)
+                {
+                    out.writeObject(count);
+                }
+            } catch (ClassNotFoundException | IOException e) {
+                e.printStackTrace();
+                break;
+            }
+        }
+        return false;
     }
 }
