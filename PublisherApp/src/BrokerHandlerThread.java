@@ -12,6 +12,9 @@ public class BrokerHandlerThread extends Thread {
     private ArrayList<Value> chunks;
     private PublisherNode publisher;
 
+    //constructor - initialize connection attributes
+    //songsInfo is the list which we create when we read the database(artist name,song name, path of song)
+    //the publisher object (access server part of publisher's attributes)
     public BrokerHandlerThread(Socket requestSocket, PublisherNode publisher ,ArrayList<ArrayList<String>> songsInfo) {
         this.songsInfo = songsInfo;
         this.publisher = publisher;
@@ -24,6 +27,12 @@ public class BrokerHandlerThread extends Thread {
 
     }
 
+    //2 category of request 1)the chunks of a specific song 2)a list of songs for a specific artist
+    //1) Waiting for an artist name and a song name->
+    //  ->search the list with info of all songs and find the request's path->
+    //  ->call findChunks method to read the request from disk and create chunks list->
+    //  ->push chunks to broker
+    //2)call songsOFSpecificArtist method which return all song of an artist
     public void run() {
         System.out.println("Server part of publisher :: New thread created");
         try
@@ -43,7 +52,7 @@ public class BrokerHandlerThread extends Thread {
                     }
                 }
                 chunks = findChunks(this.songsInfo.get(i).get(0));
-                System.out.println("Server part of publisher :: Creation of chunks weas successful -- " + chunks.size() + " chunks created");
+                System.out.println("Server part of publisher :: Creation of chunks was successful -- " + chunks.size() + " chunks created");
                 
                 out.writeObject(chunks.size());
                 while(!chunks.isEmpty())
@@ -88,6 +97,7 @@ public class BrokerHandlerThread extends Thread {
         }
     }
 
+    //create a hashSet with songs of a given artist
     public HashSet<String> songsOfSpecificArtist(String userArtist)
     {
         HashSet<String> temp = new HashSet<>();
@@ -101,8 +111,12 @@ public class BrokerHandlerThread extends Thread {
         return temp;
     }
 
+    //return a list with all chunks as value objects for a specific song with its path
+    //every value object(chunk) has artistName,trackName,albumInfo,genre and an array of bytes(data of chunk)
+    //chunk size is 512 KB you can change it if sizeOf chunk variable change
     public ArrayList<Value> findChunks(String path)
     {
+        final int sizeOfChunk = 512;
         File file = new File(path);
         Mp3File song = null;
         String artistName = "";
@@ -118,7 +132,7 @@ public class BrokerHandlerThread extends Thread {
         {
             e.printStackTrace();
         }
-        byte[] buf = new byte[512*1024];
+        byte[] buf = new byte[sizeOfChunk*1024];
         ArrayList<Value> chunks = new ArrayList<>();
         try
         {
