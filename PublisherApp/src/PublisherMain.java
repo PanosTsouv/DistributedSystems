@@ -1,4 +1,10 @@
 public class PublisherMain{
+    //@param args[0] : publisherID
+    //@param args[1] : port of server part of publisher
+    //@param args[2] : port of server that client part of publisher connect
+    //@param args[3] : serverIP of server that client part of publisher connect
+    //@param args[4] : start of range of first letter of artist
+    //@param args[5] : end of range of first letter of artist
     public static void main(String[] args)
     {
         String path = System.getProperty("user.dir") + "/dataset1";
