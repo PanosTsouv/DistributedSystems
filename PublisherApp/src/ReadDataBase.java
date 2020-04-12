@@ -14,6 +14,8 @@ public class ReadDataBase{
         this.endChar = endChar;
     }
 
+    //for every song in database we find the artist name,the song name, the path of song
+    //return this list 
     public ArrayList<ArrayList<String>> readthePathOfMusicFiles()
     {
         File file = new File(path);
@@ -52,7 +54,7 @@ public class ReadDataBase{
                             artistName = id3v2tag.getArtist();
                             trackName = id3v2tag.getTitle();
                         }
-                        if(artistName != null && artistName.length() >= 1 && trackName != null)
+                        if(artistName != null && artistName.length() >= 1 && trackName != null && artistName.length() >= 1)
                         {
                             if(artistName.charAt(0) >= startChar && artistName.charAt(0) <= endChar)
                             {

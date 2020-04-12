@@ -43,7 +43,8 @@ public class PublisherNode implements Publisher{
     private ObjectOutputStream out = null;
     private ObjectInputStream in = null;
 
-    public PublisherNode(String publisherID, String port, String ownPort, String serverIP, String path, char start, char end)
+    //constructor + initialize attributes list which we send to clients
+    public PublisherNode(String publisherID, String ownPort, String port, String serverIP, String path, char start, char end)
     {
         this.publisherID = publisherID;
         this.port = port;
@@ -177,7 +178,8 @@ public class PublisherNode implements Publisher{
         } 
         catch (IOException ioException) 
         {
-            ioException.printStackTrace();
+            System.err.println("You are trying to connect to an offline server.Check the server IP and port");
+            System.exit(1);
         }
     }
 
