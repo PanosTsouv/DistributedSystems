@@ -17,6 +17,8 @@ public class ActionsForClients extends Thread {
     ArtistName userArtistName;
     String userSongName;
 
+    //constructor - initialize connection attributes
+    //the broker object (access server part of broker's attributes)
 	public ActionsForClients(Socket connection, BrokerNode brokerServer){
         try 
         {
@@ -31,6 +33,8 @@ public class ActionsForClients extends Thread {
         }
     }
     
+    //receive client type and his attributes
+    //handle connection
     @SuppressWarnings("unchecked")
     public void run() 
     {
@@ -116,6 +120,9 @@ public class ActionsForClients extends Thread {
     }
 
 
+    //receive a hashmap artistID as key and BrokerID as value from publisher
+    //initialize broker hashmap artistID as key and BrokerID as value
+    //add broker to register list
     @SuppressWarnings("unchecked")
     private void publisherConnection(ArrayList<String> publisherInfo) throws IOException, ClassNotFoundException
     {
@@ -131,11 +138,11 @@ public class ActionsForClients extends Thread {
             }
         }
         System.out.println("Server part of broker :: List with registered Publishers");
-        System.out.println(brokerServer.getRegisteredPublishers());
+        System.out.println(brokerServer.getRegisteredPublishers());//debug
         System.out.println("Server part of broker :: HashMap with Artist as key and Broker as value");
-        System.out.println(brokerServer.getArtistToBrokers());
+        System.out.println(brokerServer.getArtistToBrokers());//debug
         System.out.println("Server part of broker :: HashMap with Artist as key and Publisher as value");
-        System.out.println(brokerServer.getArtistToPublisher());
+        System.out.println(brokerServer.getArtistToPublisher());//debug
     }
 
     /////////////////////////////////////////////////
@@ -144,6 +151,15 @@ public class ActionsForClients extends Thread {
     /////////////                   //////////////
     /////////////////////////////////////////////
 
+
+    //IDEA for consumer handler
+    //if consumer connect for first time we send him a info object(broker list -- hashmap with Artist to Broker)
+    //wait for consumer to register(clients with info object know which broker is right for his request) - 
+    // if consumer doesn't register,disconnect and client connect to right broker
+    //Client give us an artist and broker return him a list with song of this artist
+    //Client chooses a song and makes a request
+    //Broker checks if client's login is valid if not he gives him 3 attemps to login again
+    //broker pull request from cache without make request to publisher if cache has the song else forward the request
     @SuppressWarnings("unchecked")
     private void acceptConnectionConsumer(ArrayList<String> consumerInfo) throws IOException, ClassNotFoundException
     {
@@ -160,6 +176,7 @@ public class ActionsForClients extends Thread {
             return;
         }
         brokerServer.getRegisteredUsers().put(consumerInfo.get(3), consumerInfo);
+        System.out.println("Server part of broker :: Print the registered users:");
         System.out.println(brokerServer.getRegisteredUsers());
         String artist = (String) in.readObject();
         userArtistName = new ArtistName(artist);
@@ -174,7 +191,16 @@ public class ActionsForClients extends Thread {
         out.writeObject(temp);
         out.flush();
         userSongName = (String) in.readObject();
-        if(!ckeckUserLogin()){return;};
+        if(!temp.contains(userSongName))
+        {
+            out.writeObject("You can disconnect");
+            return;
+        }
+        if(!ckeckUserLogin(consumerInfo))
+        {
+            out.writeObject("You can disconnect");
+            return;
+        };
 
         if(brokerServer.getSongsInCache().get(userSongName) != null)
         {
@@ -209,11 +235,11 @@ public class ActionsForClients extends Thread {
         if (answerForUnregister.equals("I want to unregister")) {
             brokerServer.getRegisteredUsers().remove(consumerInfo.get(3));
         }
-        System.out.println(brokerServer.getRegisteredUsers());
         out.writeObject("You can disconnect");
         out.flush();
     }
 
+    //open a connection with a specific publisher
     public void initializeStreamsFromBrokersToSpecificPublisher() 
     {
         String tempPublisherID = brokerServer.getArtistToPublisher().get(userArtistName.getArtistName());
@@ -234,14 +260,15 @@ public class ActionsForClients extends Thread {
         }
     }
 
-    public boolean ckeckUserLogin() {
+    ///check login info
+    public boolean ckeckUserLogin(ArrayList<String> consumerInfo) {
         int count = 3;
         while(count != -1)
         {
             try {
                 String tempUserEmail = (String) in.readObject();
                 String tempUserPassword = (String) in.readObject();
-                if (brokerServer.getRegisteredUsers().containsKey(tempUserEmail))
+                if (brokerServer.getRegisteredUsers().containsKey(tempUserEmail) && consumerInfo.get(3).equals(tempUserEmail) )
                 {
                     if(brokerServer.getRegisteredUsers().get(tempUserEmail).get(1).equals(tempUserPassword))
                     {
