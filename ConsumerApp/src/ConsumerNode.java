@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 
 import javazoom.jl.decoder.JavaLayerException;
@@ -14,7 +15,7 @@ import javazoom.jl.player.Player;
 //@param requestSocket : is the connection between server-client....client open a socket to connect with server
 //@param out,in : client use these streams to communicate with server
 
-//IDEA:
+//IDEA ABOUT CONNECTION WITH BROKER:
 // (1)   Consumer make a random server connect ->
 // (2)-> Server send back Info object(message) which contains a list with all brokers(servers) and their attributes(serverID-serverIP-port) --- 
 //       a hashMap with all artistNames as KEYS and brokerID(server) as values ->
@@ -34,12 +35,14 @@ public class ConsumerNode implements Consumer {
     private String artistName;
     private String songName;
     private Info answer = null;
+    private boolean online = false;
     private String loginEmail;
     private String loginPassword;
 
     private ArrayList<String> attributes = new ArrayList<>();
     private ArrayList<File> streaming = new ArrayList<>();
     private HashSet<String> listOfSong = new HashSet<>();
+    private ArrayList<String> downloadedList = new ArrayList<>();
 
     private Socket requestSocket = null;
     private ObjectOutputStream out = null;
@@ -49,8 +52,7 @@ public class ConsumerNode implements Consumer {
     // has access to this list
     // IMPORTANT -- if you want server know a attribute of consumer you should add
     // it to the attributes list
-    public ConsumerNode(String consumerEmail, String consumerName, String consumerPassword, String serverIP,
-            String port) {
+    public ConsumerNode(String consumerEmail, String consumerName, String consumerPassword, String serverIP,String port) {
         this.consumerName = consumerName;
         this.consumerPassword = consumerPassword;
         this.consumerEmail = consumerEmail;
@@ -72,10 +74,40 @@ public class ConsumerNode implements Consumer {
                 songName = getSongNameFromUser();
                 songExist = listOfSong.contains(songName);
             }
+			if(checkDownloaded())
+			{
+				unregister();
+				System.exit(1);
+			}
             out.writeObject(songName);
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+	// Check if requested song is already downloaded
+    public Boolean checkDownloaded() 
+    {
+        boolean songExistAtStorage = downloadedList.contains(songName);
+        if(!online)
+        {
+            while (!songExistAtStorage) 
+            {
+                songName = getSongNameFromUser();
+                songExistAtStorage = downloadedList.contains(songName);
+            }
+            String path = (System.getProperty("user.dir") + "/download/" + this.songName + ".mp3");
+            File dd = new File(path);
+            streaming.add(dd);
+            playData();
+        }
+        else if(songExistAtStorage)
+        {
+            String path = (System.getProperty("user.dir") + "/download/" + this.songName + ".mp3");
+            File dd = new File(path);
+            streaming.add(dd);
+            playData();
+        }
+        return songExistAtStorage;    
     }
 
     // play and write the parts of song that user ask
@@ -88,7 +120,7 @@ public class ConsumerNode implements Consumer {
             };
             thread.start();
 
-            writeData();// receive and write the song
+            writeData(false);// receive the chunks of the song
 
             try {
                 thread.join();
@@ -103,7 +135,7 @@ public class ConsumerNode implements Consumer {
     // receive and write the song
     public void userSelectOffline() {
         try {
-            writeData();
+            writeData(true);// receive the chunks of the song and write it
         } catch (IOException | ClassNotFoundException e) {
             e.printStackTrace();
         }
@@ -312,7 +344,8 @@ public class ConsumerNode implements Consumer {
         return false;
     }
 
-    public void writeData() throws ClassNotFoundException, IOException
+    // Store the chunks 
+    public void writeData(Boolean download) throws ClassNotFoundException, IOException
     {
         int size = (int) in.readObject();
         StringBuilder path = new StringBuilder();
@@ -321,14 +354,21 @@ public class ConsumerNode implements Consumer {
         FileOutputStream fos = null;
         FileOutputStream streamID = null;
         
-        path.append(System.getProperty("user.dir") + "/download/" + this.songName + "-part0.mp3");
+        path.append(System.getProperty("user.dir") + "/chunks/" + this.songName + "-part0.mp3");
         int count = 0;
         while(count != size)
         {
             int k = path.indexOf(prefix);
             if (k != -1)
             {
-                path.delete(k-(Integer.toString(count).length()), k + path.length());
+                if(count>10)
+                {
+                    path.delete(k-(Integer.toString(count).length()), k + path.length());
+                }
+                else
+                {
+                    path.delete(k-1, k + path.length());
+                }    
             }
             path.append(count);
             path.append(".mp3");
@@ -340,13 +380,19 @@ public class ConsumerNode implements Consumer {
             fos.flush();
             streaming.add(someFile);
             
-            streamID = new FileOutputStream(System.getProperty("user.dir") + "/download/" + this.songName + ".mp3",true);
-            streamID.write(temp.getMusicFile().getMusicFileExtract());
+            if(download) // merge the chunks into one song and store it in download dir
+            {
+                streamID = new FileOutputStream(System.getProperty("user.dir") + "/download/" + this.songName +".mp3",true);
+                streamID.write(temp.getMusicFile().getMusicFileExtract());                
+            }
             
             count++;
         }
-        streamID.flush();
-        streamID.close();
+        if(download)
+        {
+            streamID.flush();
+            streamID.close();
+        }
 
         out.flush();
         fos.close();
@@ -400,7 +446,7 @@ public class ConsumerNode implements Consumer {
     }
 
     //user gives a song
-    private String getSongNameFromUser()
+    public String getSongNameFromUser()
     {
         System.out.println("Give an existing song from the list:");
         this.songName =  System.console().readLine();
@@ -413,5 +459,37 @@ public class ConsumerNode implements Consumer {
         System.out.println("Press 0 for live streaming");
         System.out.println("Press anything else to download the song and disconnect");
         return System.console().readLine();
+    }
+    
+    //user choose online or not
+	public Boolean getOnline()
+    {
+        System.out.println("Press 0 for online");
+        System.out.println("Press anything else for offline");
+        online = System.console().readLine().equals("0");
+        return online;
+    }
+    
+    //create a list with the name of the songs existing in download dir
+	public void setDownloadedList()
+    {
+        File f = new File(System.getProperty("user.dir") + "/download/");
+        downloadedList = new ArrayList<String>(Arrays.asList(f.list()));
+        if(downloadedList.size()==0 && !online)
+        {
+            System.out.println("No downloaded files yet");
+            System.exit(1);
+        }
+        for(int i=0; i<downloadedList.size() ; i++)
+        {
+            StringBuilder temp = new StringBuilder();
+            temp.append(downloadedList.get(i));
+            temp.delete(downloadedList.get(i).length()-4, downloadedList.get(i).length());
+            downloadedList.set(i, temp.toString());
+            if(!online) //print the list if user is offline
+            {
+                System.out.println(i+1 + ":" + downloadedList.get(i)  +"\n" );
+            }
+        }
     }
 }
