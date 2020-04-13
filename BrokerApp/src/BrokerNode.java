@@ -26,6 +26,7 @@ public class BrokerNode implements Broker {
     private ServerSocket providerSocket = null;
     private Socket connection = null;
 
+    //atributes of broker as client
     private String serverIP;
     private String port;
     private Socket connectionAsClient = null;
@@ -39,6 +40,7 @@ public class BrokerNode implements Broker {
 
     public BrokerNode(){}
 
+    //constructor initialize server attributes and create a list with them
     public BrokerNode(String ownPort, String brokerID, int numberOfBrokers) {
 
         this.brokerID = brokerID;
@@ -86,6 +88,7 @@ public class BrokerNode implements Broker {
     /////////////                  ///////////////
     /////////////////////////////////////////////
 
+    //initialize a client connection(client part of broker)
     @Override
     public void init() throws IOException,UnknownHostException,NumberFormatException{
         connectionAsClient = new Socket(this.serverIP, Integer.parseInt(this.port));
@@ -115,6 +118,8 @@ public class BrokerNode implements Broker {
         }
     }
 
+    //send the type of Client(broker as client)
+    //and his attributes
     public void connectWithBrokers(){
         try 
         {
@@ -169,6 +174,7 @@ public class BrokerNode implements Broker {
     /////////////                  ///////////////
     /////////////////////////////////////////////
 
+    //open the server part of broker
     public void openServer() 
     {
         try 
@@ -212,9 +218,9 @@ public class BrokerNode implements Broker {
         return brokersInfo;
     }
 
-
+    //calculate hash values from (IP+Port) and save a tring with length 3
     @Override
-    public void calculateKeys() {
+    public void calculateKeys(){
         BigInteger sha1 = null;
         try {
             MessageDigest msdDigest = MessageDigest.getInstance("MD5");
@@ -226,6 +232,8 @@ public class BrokerNode implements Broker {
         this.hashBroker = sha1.toString().substring(0, 3);
     }
 
+
+    //pull method check if the chunk is at list and try to take them...if publisher dont have pushed all chunks,broker thread sleep and wait
     @Override
     public void pull(ArtistName artistName, String songName, ObjectOutputStream outConsumer) 
     {

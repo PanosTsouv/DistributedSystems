@@ -1,6 +1,9 @@
 import java.io.IOException;
 import java.net.UnknownHostException;
 
+//@param args[0] : server port
+//@param args[1] : brokerID
+//@param args[2] : totalNumberOfBrokers
 public class BrokerMain
 {
     public static void main(String[] args) 
