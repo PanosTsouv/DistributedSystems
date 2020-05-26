@@ -1,0 +1,309 @@
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketException;
+import java.net.UnknownHostException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.Enumeration;
+import java.util.HashMap;
+
+import Utils.ArtistName;
+import Utils.Value;
+
+public class BrokerNode implements Broker {
+
+    //attributes of broker as Server
+    private String brokerID;
+    private String ownPort;
+    private String ownServerIP;
+    private String hashBroker;
+    private int numberOfBrokers;
+    private ServerSocket providerSocket = null;
+    private Socket connection = null;
+
+    //atributes of broker as client
+    private String serverIP;
+    private String port;
+    private Socket connectionAsClient = null;
+    private ObjectInputStream inAsClient = null;
+    private ObjectOutputStream outAsClient = null;
+
+    private ArrayList<String> attributes = new ArrayList<>();
+    private HashMap<ArtistName, String> artistToBrokers = new HashMap<>();
+    private HashMap<String, String> artistToPublisher = new HashMap<>();
+    private HashMap<String, Value[]> songsInCache = new HashMap<>();
+
+    public BrokerNode(){}
+
+    //constructor initialize server attributes and create a list with them
+    public BrokerNode(String ownPort, String brokerID, int numberOfBrokers) {
+
+        this.brokerID = brokerID;
+        this.ownPort = ownPort;
+        Enumeration<NetworkInterface> nets = null;
+        try {
+            nets = NetworkInterface.getNetworkInterfaces();
+        } catch (SocketException e2) {
+            e2.printStackTrace();
+        }
+        for (NetworkInterface netint : Collections.list(nets))
+        {
+            if (netint.getName().equals("eth1") && netint.getInterfaceAddresses().size() > 0)
+            {
+                this.ownServerIP = netint.getInterfaceAddresses().get(0).getAddress().getHostAddress();
+                break;
+            }
+			else
+			{
+				try 
+				{
+					this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
+				} 
+				catch (UnknownHostException e) 
+				{
+					e.printStackTrace();
+				}
+			}
+        }
+        this.numberOfBrokers = numberOfBrokers;
+        calculateKeys();
+
+        attributes.add(this.brokerID);
+        attributes.add(this.ownPort);
+        attributes.add(this.ownServerIP);
+        attributes.add(this.hashBroker);
+        brokersInfo.add(attributes);
+        System.out.println("Broker " + this.brokerID + " BrokerIp: " + this.ownServerIP + " Port: " + this.ownPort + " ServerHash: " + this.hashBroker + "\n");
+    }
+
+    
+    /////////////////////////////////////////////////
+    ///////////////                  ///////////////
+    //////////////    CLIENT PART   ///////////////
+    /////////////                  ///////////////
+    /////////////////////////////////////////////
+
+    //initialize a client connection(client part of broker)
+    @Override
+    public void init() throws IOException,UnknownHostException,NumberFormatException{
+        connectionAsClient = new Socket(this.serverIP, Integer.parseInt(this.port));
+        outAsClient = new ObjectOutputStream(connectionAsClient.getOutputStream());
+        inAsClient = new ObjectInputStream(connectionAsClient.getInputStream());
+        System.out.println("Client part of Broker :: Connected.");
+    }
+
+    @Override
+    public void connect() throws IOException {
+       
+
+    }
+
+    @Override
+    public void disconnect(){
+        try 
+        {
+            inAsClient.close();
+            outAsClient.close();
+            connectionAsClient.close();
+            System.out.println("Client part of Broker :: Disconnected.");
+        } 
+        catch (IOException e)
+        {
+            e.printStackTrace();
+        }
+    }
+
+    //send the type of Client(broker as client)
+    //and his attributes
+    public void connectWithBrokers(){
+        try 
+        {
+            outAsClient.writeObject("BrokerNode");
+            outAsClient.writeObject(this.attributes);
+            outAsClient.flush();
+        }
+        catch(IOException e) 
+        {
+            e.printStackTrace();
+        }
+        System.out.println("Client part of broker :: Send broker signature");
+        disconnect();
+    }
+
+    public void setConnectionServerIP()
+    {
+        System.out.println("Client part of broker :: Give the serverIP of connection");
+        this.serverIP = System.console().readLine();
+    }
+
+    public void setConnectionPort()
+    {
+        System.out.println("Client part of broker :: Give the port of connection");
+        this.port = System.console().readLine();
+    }
+
+    public void setServerIP(String serverIP)
+    {
+        this.serverIP = serverIP;
+    }
+
+    public void setPort(String port)
+    { 
+        this.port = port;
+    }
+
+    public ObjectInputStream getInAsClient()
+    {
+        return this.inAsClient;
+    }
+
+    public ObjectOutputStream getOutAsClient()
+    { 
+        return this.outAsClient;
+    }
+
+
+    /////////////////////////////////////////////////
+    ///////////////                  ///////////////
+    //////////////   SERVER PART    ///////////////
+    /////////////                  ///////////////
+    /////////////////////////////////////////////
+
+    //open the server part of broker
+    public void openServer() 
+    {
+        try 
+        {
+            providerSocket = new ServerSocket(Integer.parseInt(this.ownPort));
+            while (true) 
+            {
+                connection = providerSocket.accept();
+                System.out.println("Server part of broker :: Client connected.");
+                ActionsForClients add = new ActionsForClients(connection, this);
+                System.out.println("Server part of broker :: Handler created.");
+                new Thread(add).start();
+            }
+        } 
+        catch (IOException e) 
+        {
+            e.printStackTrace();
+        } 
+        finally 
+        {
+            try 
+            {
+                providerSocket.close();
+            } 
+            catch (IOException ioException) 
+            {
+                ioException.printStackTrace();
+            }
+        }
+    }
+
+    
+    public int getNumbersOfBroker()
+    {
+        return this.numberOfBrokers;
+    }
+
+    @Override
+    public ArrayList<ArrayList<String>> getBrokersInfo() {
+        
+        return brokersInfo;
+    }
+
+    //calculate hash values from (IP+Port) and save a tring with length 3
+    @Override
+    public void calculateKeys(){
+        BigInteger sha1 = null;
+        try {
+            MessageDigest msdDigest = MessageDigest.getInstance("MD5");
+            byte[] messageDigest = msdDigest.digest((this.serverIP + this.ownPort).getBytes());
+            sha1 = new BigInteger(1, messageDigest);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        this.hashBroker = sha1.toString().substring(0, 3);
+    }
+
+
+    //pull method check if the chunk is at list and try to take them...if publisher dont have pushed all chunks,broker thread sleep and wait
+    @Override
+    public void pull(ArtistName artistName, String songName, ObjectOutputStream outConsumer) 
+    {
+        try 
+        {
+            outConsumer.writeObject(getSongsInCache().get(songName).length);
+            outConsumer.flush();
+            System.out.println("We send number of chunks");
+            int count = 0;
+            while (count != getSongsInCache().get(songName).length)
+            {
+                long startBackgroundJobTime = new Date().getTime();
+                while(getSongsInCache().get(songName)[count] == null)
+                {
+                    long startWhileTime = new Date().getTime();
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    long endWhileTime = new Date().getTime();
+                    System.out.println("ELAPSE WHILE TIME: " + (endWhileTime - startWhileTime));
+                }
+                outConsumer.writeObject(getSongsInCache().get(songName)[count]);
+                count++;
+                long endBackgroundJobTime = new Date().getTime();
+                System.out.println("ELAPSE BACKGROUND JOB TIME: " + (endBackgroundJobTime - startBackgroundJobTime));
+            }
+            outConsumer.flush();
+        }
+        catch (IOException e) 
+        {
+            e.printStackTrace();
+        }
+
+    }
+
+    
+
+    @Override
+    public String getBrokerID() {
+        return brokerID;
+    }
+
+    public HashMap<String,Value[]> getSongsInCache()
+    {
+        return this.songsInCache;
+    }
+
+	public HashMap<String, ArrayList<String>> getRegisteredPublishers()
+    {
+        return registeredPublishers;
+    }
+
+    public HashMap<String, ArrayList<String>> getRegisteredUsers()
+    {
+        return registeredUsers;
+    }
+
+    public HashMap<ArtistName,String> getArtistToBrokers()
+    {
+        return this.artistToBrokers;
+    }
+
+    public HashMap<String,String> getArtistToPublisher()
+    {
+        return this.artistToPublisher;
+    }
+}
