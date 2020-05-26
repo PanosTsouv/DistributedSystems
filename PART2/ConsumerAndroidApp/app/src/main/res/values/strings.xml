@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">MyMusicStreamingApp</string>
+    <string name="no_artists">No artists found.</string>
+    <string name="no_internet_connection">No internet connection.</string>
+    <string name="no_songs">No songs found.</string>
+    <string name="myfolder">MyFolder</string>
+    <string name="songs">Songs:</string>
+    <string name="default_files_in_folder">0</string>
+    <string name="ChunkNumberProblem">A problem with server occurred</string>
+</resources>
