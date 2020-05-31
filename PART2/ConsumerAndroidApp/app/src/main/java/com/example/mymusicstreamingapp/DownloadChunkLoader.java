@@ -11,28 +11,18 @@ import Utils.Value;
 public class DownloadChunkLoader extends AsyncTaskLoader<Value> {
     private Value mChunk;
     private String mSongName;
-    private boolean requestChanged = false;
 
     private static final String LOG_TAG = DownloadChunkLoader.class.getName();
 
     DownloadChunkLoader(@NonNull Context context, String songName) {
         super(context);
-        if (mSongName != null && !mSongName.equals(songName))
-        {
-            requestChanged = true;
-        }
         mSongName = songName;
     }
 
     @Override
     protected synchronized void onStartLoading() {
         Log.d(LOG_TAG, getId() + " start");
-        if(requestChanged)
-        {
-            Log.d(LOG_TAG, "Loader " + getId() + " request change");
-            forceLoad();
-        }
-        else if (mChunk != null)
+        if (mChunk != null)
         {
             Log.d(LOG_TAG, "Loader " + getId() + " has already artists so don't need to make again background job");
             deliverResult(mChunk);
