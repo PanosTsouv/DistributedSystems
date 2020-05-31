@@ -44,7 +44,7 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
 
     private static final String LOG_TAG = SongActivity.class.getName();
 
-    static final boolean SONG_LIST_LOADER_DEBUG = false;
+    static final boolean SONG_LIST_LOADER_DEBUG = true;
 
     /**
      * Constant value for the song loader ID and download loader ID. We can choose any integer.
@@ -75,7 +75,8 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     private ListView mSongListView;
     private SongNameAdapter mAdapter;
     private LoaderManager mLoaderManager;
-    //private DownloadChunkLoader firstLoaderOfChunks;
+    private DownloadChunkLoader firstLoaderOfChunks;
+    private boolean requestHasChanged = false;
 
     /**
      * use this variables to write song at external storage
@@ -92,6 +93,8 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     int count = 0;
 
     boolean clickButton = false;
+
+    boolean onRestoreInstance = false;
 
     public static Toast mToast = null;
 
@@ -155,11 +158,11 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
         @Override
         public synchronized Loader<Value> onCreateLoader(int id, Bundle args) {
             Log.d(LOG_TAG, "Call onCreateLoader type of DownloadChunksLoader");
-//            if (id == DOWNLOAD_LOADER_ID)
-//            {
-//                firstLoaderOfChunks = new DownloadChunkLoader(SongActivity.this, args.getString(SONG_NAME_KEY));
-//                return firstLoaderOfChunks;
-//            }
+            if (id == DOWNLOAD_LOADER_ID)
+            {
+                firstLoaderOfChunks = new DownloadChunkLoader(SongActivity.this, args.getString(SONG_NAME_KEY));
+                return firstLoaderOfChunks;
+            }
             return new DownloadChunkLoader(SongActivity.this, args.getString(SONG_NAME_KEY));
         }
 
@@ -171,6 +174,14 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
                 closeOutputFileStream();
                 deleteExistingFile();
                 return;
+            }
+            if(loader.getId() == DOWNLOAD_LOADER_ID) {
+                deleteExistingFile();
+                try {
+                    streamID = StorageUtils.createASongStream(data.getMusicFile().getTrackName(), SongActivity.this);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
             try {
                 streamID.write(data.getMusicFile().getMusicFileExtract());
@@ -184,13 +195,15 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
             bundle.putString(SONG_NAME_KEY, data.getMusicFile().getTrackName());
             if (count < result)
             {
-                mLoaderManager.restartLoader(DOWNLOAD_LOADER_ID + count, bundle, dataResultDownloadChunksLoaderListener);
+                Log.d(LOG_TAG,requestHasChanged + "");
+                Log.d(LOG_TAG, (mLoaderManager.getLoader(DOWNLOAD_LOADER_ID + count) == null) + "***************************");
+                Log.d(LOG_TAG,count + "");
+                if(requestHasChanged || mLoaderManager.getLoader(DOWNLOAD_LOADER_ID + count) == null)
+                    mLoaderManager.restartLoader(DOWNLOAD_LOADER_ID + count, bundle, dataResultDownloadChunksLoaderListener);
             }
             ((ProgressBar)findViewById(R.id.progress_dialog_bar)).setProgress(count);
             if(count == result)
             {
-                closeOutputFileStream();
-                count = 0;
                 progressDialog.setVisibility(View.GONE);
                 openUIInteraction();
             }
@@ -247,20 +260,31 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
         //handle no internet connection at else statement
         if (NetworkUtils.isNetworkAvailable(this)) {
             clickButton = true;
+            requestHasChanged = false;
+            count = 0;
+            if((firstLoaderOfChunks != null && !firstLoaderOfChunks.getLoaderSongName().equals(songName)) || onRestoreInstance)
+            {
+                requestHasChanged = true;
+                for(int i = 0; i < result; i++)
+                {
+                    if(mLoaderManager.getLoader(DOWNLOAD_LOADER_ID + i) != null)
+                        mLoaderManager.destroyLoader(DOWNLOAD_LOADER_ID + i);
+                }
+            }
+            else if(!requestHasChanged && firstLoaderOfChunks != null)
+            {
+                Toast.makeText(this, "Previous request was same", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
             //Loading spinner show at UI
             findViewById(R.id.loading_spinner1).setVisibility(View.VISIBLE);
 
             closeUIInteraction();
 
-//            if(firstLoaderOfChunks == null) {
-//                result = executeTaskToReceiveChunkNumber(songName);
-//            }
-//
-//            if(firstLoaderOfChunks != null && !firstLoaderOfChunks.getLoaderSongName().equals(songName)) {
-//                result = executeTaskToReceiveChunkNumber(songName);
-//            }
-            result = executeTaskToReceiveChunkNumber(songName);
+            if(firstLoaderOfChunks == null || requestHasChanged) {
+                result = executeTaskToReceiveChunkNumber(songName);
+            }
             handleErrorOccurredWithNumberOfChunks(songName);
 
             if (result != null && result != 0) {
@@ -270,12 +294,6 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
                 findViewById(R.id.loading_spinner1).setVisibility(View.GONE);
 
                 path = StorageUtils.getOurMusicFolder(this) + "/" + songName + ".mp3";
-                deleteExistingFile();
-                try {
-                    streamID = StorageUtils.createASongStream(songName, this);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
                 progressDialog = findViewById(R.id.progress_dialog);
                 ((ProgressBar) progressDialog.findViewById(R.id.progress_dialog_bar)).setProgress(0);
                 ((ProgressBar) progressDialog.findViewById(R.id.progress_dialog_bar)).setMax(result);
@@ -283,7 +301,8 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
                 //initialize loaders to receive chunks
                 Bundle bundle = new Bundle();
                 bundle.putString(SONG_NAME_KEY, songName);
-                mLoaderManager.restartLoader(DOWNLOAD_LOADER_ID, bundle, dataResultDownloadChunksLoaderListener);
+                if(requestHasChanged || firstLoaderOfChunks == null)
+                    mLoaderManager.restartLoader(DOWNLOAD_LOADER_ID, bundle, dataResultDownloadChunksLoaderListener);
             }
         }
         else
@@ -345,7 +364,12 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     {
         if (result == null || result == 0) {
             UnregisterTask myTask = new UnregisterTask();
-            myTask.execute(false);
+            try {
+                if(NetworkUtils.getSocket() != null)
+                    myTask.execute(false).get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             OpenConnectionFromStartTask openConnectionTask = new OpenConnectionFromStartTask();
             try {
                 if(openConnectionTask.execute(this.getIntent().getStringExtra(ARTIST_NAME_KEY)).get() == 0)
@@ -374,7 +398,6 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_NOSENSOR);
     }
 
     /**
@@ -383,7 +406,6 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     public void openUIInteraction()
     {
         getWindow().clearFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE);
-        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR);
     }
 
     public void closeOutputFileStream()
@@ -429,6 +451,7 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
                 UnregisterTask myTask = new UnregisterTask();
                 myTask.execute(clickButton);
                 openOfflineActivity.putExtra(ARTIST_NAME_KEY, SongActivity.this.getIntent().getStringExtra(ARTIST_NAME_KEY));
+                finish();
                 startActivity(openOfflineActivity);
                 Toast.makeText(SongActivity.this, "OFFLINE MODE", Toast.LENGTH_SHORT).show();
             }
@@ -446,14 +469,22 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
         int id = item.getItemId();
         if (item.getItemId() == android.R.id.home) {
             UnregisterTask myTask = new UnregisterTask();
-            myTask.execute(clickButton);
+            try {
+                myTask.execute(true).get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             NavUtils.navigateUpFromSameTask(this);
             return true;
         }
         if (id == R.id.refresh)
         {
             UnregisterTask myTask = new UnregisterTask();
-            myTask.execute(clickButton);
+            try {
+                myTask.execute(true).get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             mAdapter.clear();
             finish();
             overridePendingTransition( 0, 0);
@@ -468,7 +499,11 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     public boolean onKeyDown(int keyCode, KeyEvent event)  {
         if (keyCode == KeyEvent.KEYCODE_BACK ) {
             UnregisterTask myTask = new UnregisterTask();
-            myTask.execute(clickButton);
+            try {
+                myTask.execute(true).get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             NavUtils.navigateUpFromSameTask(this);
             return true;
         }
@@ -481,12 +516,17 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
         if(LIFECYCLE_DEBUG) Log.d(LOG_TAG, "Call onSaveInstanceState method");
+        outState.putInt(CHUNKS_NUMBER_KEY, result);
+        if(count < result-1 && count != 0)
+            deleteExistingFile();
         super.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
         if(LIFECYCLE_DEBUG) Log.d(LOG_TAG, "Call onRestoreInstanceState method");
+        result = savedInstanceState.getInt(CHUNKS_NUMBER_KEY);
+        onRestoreInstance = true;
         super.onRestoreInstanceState(savedInstanceState);
     }
 
