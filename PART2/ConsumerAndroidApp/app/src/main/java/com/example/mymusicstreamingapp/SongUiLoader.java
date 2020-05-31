@@ -31,11 +31,6 @@ public class SongUiLoader extends AsyncTaskLoader<ArrayList<String>> {
         if (mSongs != null)
         {
             if(SONG_LIST_LOADER_DEBUG) Log.d(LOG_TAG, "Loader has already songs so don't need to make again background job");
-            if(NetworkUtils.getSocket() == null)
-            {
-                forceLoad();
-                return;
-            }
             deliverResult(mSongs);
         }
         else
