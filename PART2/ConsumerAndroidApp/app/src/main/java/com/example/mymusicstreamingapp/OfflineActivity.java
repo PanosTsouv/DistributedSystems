@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
 
 import static com.example.mymusicstreamingapp.MainActivity.ARTIST_NAME_KEY;
@@ -40,7 +41,7 @@ public class OfflineActivity extends AppCompatActivity implements OfflineListAda
 
     private RecyclerView mDownloadList;
 
-    ArrayList<String> mSongsName;
+    ArrayList<File> mSongsName;
 
     private int mNumberOfFiles;
 
@@ -75,10 +76,7 @@ public class OfflineActivity extends AppCompatActivity implements OfflineListAda
 
         mSongsName = new ArrayList<>();
 
-        for (File item : Objects.requireNonNull(mMusicFolder.listFiles()))
-        {
-            mSongsName.add(item.getName());
-        }
+        mSongsName.addAll(Arrays.asList(Objects.requireNonNull(mMusicFolder.listFiles())));
 
         mAdapter = new OfflineListAdapter(OfflineActivity.this, mSongsName,  this);
 
@@ -102,7 +100,7 @@ public class OfflineActivity extends AppCompatActivity implements OfflineListAda
             public void onSwiped(@NonNull RecyclerView.ViewHolder viewHolder, int direction) {
                 for (File item : Objects.requireNonNull(mMusicFolder.listFiles()))
                 {
-                    if(mSongsName.get(viewHolder.getAdapterPosition()).equals(item.getName()))
+                    if(mSongsName.get(viewHolder.getAdapterPosition()).getName().equals(item.getName()))
                     {
                         if(item.delete())
                         {
@@ -148,7 +146,7 @@ public class OfflineActivity extends AppCompatActivity implements OfflineListAda
 
     @Override
     public void onListItemClick(int clickedItemIndex) {
-        String currentSong = mSongsName.get(clickedItemIndex);
+        String currentSong = mSongsName.get(clickedItemIndex).getName();
         Toast.makeText(OfflineActivity.this, ("Play data from song " + currentSong), Toast.LENGTH_SHORT).show();
         Intent openSongPlayer = new Intent(OfflineActivity.this, SongPlayer.class);
         openSongPlayer.putExtra(CLASS_NAME_KEY, "OfflineActivity");
