@@ -41,12 +41,12 @@ import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
 import com.google.android.exoplayer2.util.Util;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Formatter;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 
 
 import Utils.Value;
@@ -215,7 +215,8 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
 
     private void setPlayPause(boolean isCurrentPlaying){
         isPlaying = isCurrentPlaying;
-        player.setPlayWhenReady(isCurrentPlaying);
+        if(player != null)
+            player.setPlayWhenReady(isCurrentPlaying);
         if(!isPlaying){
             play.setBackgroundResource(R.drawable.round_play_arrow_white_24);
         }else{
@@ -336,16 +337,11 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
                 metadata.setDataSource(metada);
                 setAlbumImageAsImageView();
             }
-
-            Log.d(LOG_TAG, "TRACK LENGTH " + data.getMusicFile().getTrackLength());
-            Log.d(LOG_TAG, "Duration of chunk track " + data.getMusicFile().getTrackDuration());
-            Log.d(LOG_TAG, "Duration of chunk " + (chunkList.size()-1) + " -> " + duration);
-            Log.d(LOG_TAG, "Player " + player.getDuration());
-            Log.d(LOG_TAG, "SECOND PROGRESS " + secondProgress);
         }
         if (chunkList.size() < chunkSize)
         {
-            loaderManager.initLoader(CHUNK_LOADER_ID + chunkList.size(), null, this);
+            if(!returnButtonClick)
+                loaderManager.initLoader(CHUNK_LOADER_ID + chunkList.size(), null, this);
         }
         if (chunkList.size() == chunkSize)
         {
@@ -357,7 +353,6 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
     public void setAlbumImageAsImageView()
     {
         byte[] songImageByte = metadata.getEmbeddedPicture();
-        Log.e("Image bytes", Arrays.toString(songImageByte));
         if (songImageByte != null) {
             Bitmap bitmap = BitmapFactory.decodeByteArray(songImageByte, 0, songImageByte.length);
             songImage.setImageBitmap(bitmap);
@@ -370,11 +365,8 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
 
     public void clearResources()
     {
-        isPlaying = false;
+        setPlayPause(false);
         isDownloading = false;
-        chunkList.clear();
-        handler = null;
-        secondHandler = null;
         if(myPlaylist != null) {
             myPlaylist.clear();
         }
@@ -393,6 +385,12 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
         if (item.getItemId() == android.R.id.home) {
             returnButtonClick = true;
             clearResources();
+            UnregisterTask myTask = new UnregisterTask();
+            try {
+                myTask.execute(true).get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             onBackPressed();
             return true;
         }
@@ -404,6 +402,12 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
         if (keyCode == KeyEvent.KEYCODE_BACK ) {
             returnButtonClick = true;
             clearResources();
+            UnregisterTask myTask = new UnregisterTask();
+            try {
+                myTask.execute(true).get();
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
             onBackPressed();
             return true;
         }
@@ -693,9 +697,10 @@ public class SongPlayer extends AppCompatActivity implements LoaderManager.Loade
     @Override
     protected void onPause() {
         if(LIFECYCLE_DEBUG) Log.d(LOG_TAG, "call onPause method");
-        if(!returnButtonClick)
+        if(returnButtonClick)
         {
-            setPlayPause(false);
+            if(player != null)
+                setPlayPause(false);
         }
         super.onPause();
     }
