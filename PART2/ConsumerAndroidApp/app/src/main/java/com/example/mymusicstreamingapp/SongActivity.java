@@ -439,6 +439,8 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.settings_menu, menu);
+        MenuItem itemPreferences = menu.findItem(R.id.preferences);
+        itemPreferences.setVisible(false);
         MenuItem itemSwitch = menu.findItem(R.id.switch_bar);
         itemSwitch.setActionView(R.layout.switch_layout);
         final Switch sw = menu.findItem(R.id.switch_bar).getActionView().findViewById(R.id.switch_button);
@@ -474,7 +476,7 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
             } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             }
-            NavUtils.navigateUpFromSameTask(this);
+            onBackPressed();
             return true;
         }
         if (id == R.id.refresh)
@@ -504,7 +506,7 @@ public class SongActivity extends AppCompatActivity implements SongNameAdapter.O
             } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             }
-            NavUtils.navigateUpFromSameTask(this);
+            onBackPressed();
             return true;
         }
         return super.onKeyDown(keyCode, event);
