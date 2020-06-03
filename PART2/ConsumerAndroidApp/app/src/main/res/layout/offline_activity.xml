@@ -29,7 +29,7 @@
                 android:id="@+id/folder_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/myfolder"
+                android:text="@string/my_folder"
                 android:textSize="16sp"
                 />
             <LinearLayout
