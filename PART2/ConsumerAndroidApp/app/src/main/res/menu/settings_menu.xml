@@ -13,4 +13,9 @@
         android:title=""
         android:actionLayout="@layout/switch_layout"
         app:showAsAction="always"/>
+
+    <item
+        android:id="@+id/preferences"
+        android:title="@string/action_settings"
+        app:showAsAction="never"/>
 </menu>
