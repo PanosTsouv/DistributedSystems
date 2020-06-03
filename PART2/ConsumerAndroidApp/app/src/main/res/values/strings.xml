@@ -3,8 +3,31 @@
     <string name="no_artists">No artists found.</string>
     <string name="no_internet_connection">No internet connection.</string>
     <string name="no_songs">No songs found.</string>
-    <string name="myfolder">MyFolder</string>
+    <string name="my_folder">MyFolder</string>
     <string name="songs">Songs:</string>
     <string name="default_files_in_folder">0</string>
     <string name="ChunkNumberProblem">A problem with server occurred</string>
+    <string name="action_settings">Settings</string>
+
+    //Preferences Strings
+    <string name="pref_client_name_default_value" translatable="false">defaultName</string>
+    <string name="pref_client_name_title">Client Name</string>
+    <string name="pref_client_name_key" translatable="false">client_name</string>
+
+    <string name="pref_client_pass_default_value" translatable="false">defaultPass</string>
+    <string name="pref_client_pass_title">Client Password</string>
+    <string name="pref_client_pass_key" translatable="false">client_pass</string>
+
+    <string name="pref_client_email_default_value" translatable="false">defaultEmail</string>
+    <string name="pref_client_email_title">Client Email</string>
+    <string name="pref_client_email_key" translatable="false">client_email</string>
+
+    <string name="pref_random_ip_default_value" translatable="false">0.0.0.0</string>
+    <string name="pref_random_ip_title">Server Random Ip</string>
+    <string name="pref_random_ip_key" translatable="false">server_random_ip</string>
+
+    <string name="pref_random_port_default_value" translatable="false">0000</string>
+    <string name="pref_random_port_title">Server Random Port</string>
+    <string name="pref_random_port_key" translatable="false">server_random_port</string>
+    <string name="change_default_values_message">Change default values from settings</string>
 </resources>
