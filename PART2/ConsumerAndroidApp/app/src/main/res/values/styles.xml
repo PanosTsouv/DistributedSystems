@@ -6,6 +6,8 @@
         <item name="colorPrimary">#3b4349</item>
         <item name="colorPrimaryDark">#151c22</item>
         <item name="colorAccent">@color/colorAccent</item>
+
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
     </style>
 
     <style name="BlackItalicText">
