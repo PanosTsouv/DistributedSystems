@@ -14,7 +14,11 @@ import android.util.Log;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.lang.reflect.Array;
+import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -30,7 +34,6 @@ class NetworkUtils {
     private static ObjectInputStream in = null;
     private static final String LOG_TAG = NetworkUtils.class.getName();
     private static ArrayList<String> mConsumerInfo;
-    private static ArrayList<ArtistName> artists = new ArrayList<>();
     private static Info answer = null;
     private static String artistName;
     private static int countChunksReceive = 0;
@@ -46,9 +49,7 @@ class NetworkUtils {
         init();
         connect();
         receiveInfoObject();
-        createArtistList();
-        Log.d(LOG_TAG, String.valueOf(artists.size()));
-        return artists;
+        return createArtistList();
     }
 
     static synchronized ArrayList<String> fetchSongs(String artist) {
@@ -110,14 +111,18 @@ class NetworkUtils {
     // initialize output-input stream
     private static void init() {
         try {
-            requestSocket = new Socket(serverIP, Integer.parseInt(port));
             Log.d(LOG_TAG,"Server which Client try to connect has ServerIP: " + serverIP + " Port: " + port);// (debug)
+            SocketAddress socketAddress= new InetSocketAddress(serverIP, Integer.parseInt(port));
+            requestSocket = new Socket();
+            requestSocket.connect(socketAddress,3000);
             out = new ObjectOutputStream(requestSocket.getOutputStream());
             in = new ObjectInputStream(requestSocket.getInputStream());
         } catch (UnknownHostException unknownHost) {
             Log.d(LOG_TAG,"You are trying to connect to an unknown host!");
         } catch (IOException ioException) {
             Log.d(LOG_TAG,"You are trying to connect to an offline server.Check the server IP and port");
+        } catch (NumberFormatException e) {
+            Log.d(LOG_TAG, "Port should be number");
         }
     }
 
@@ -182,17 +187,18 @@ class NetworkUtils {
     }
 
     //TEST TO RECEIVE WRONG VALUES FOR INFO OBJECT AND WE HANDLE THIS-----------------------------------
-    private static void createArtistList()
+    private static ArrayList<ArtistName> createArtistList()
     {
         if (answer == null)
         {
-            return;
+            return null;
         }
-        artists.clear();
+        ArrayList<ArtistName> artists = new ArrayList<>();
         for(Map.Entry<ArtistName, String> entry : answer.getArtistToBroker().entrySet())
         {
             artists.add(entry.getKey());
         }
+        return artists;
     }
 
     // check if the random broker at start is the correct broker
@@ -202,6 +208,7 @@ class NetworkUtils {
                 if (element.get(1).equals(port) && element.get(2).equals(serverIP)) {
                     return true;
                 }
+                Log.d(LOG_TAG,"Set new values IP: " + element.get(2) + " Port " + element.get(1));
                 setPort(element.get(1));
                 setServerIP(element.get(2));
             }
@@ -228,8 +235,10 @@ class NetworkUtils {
                 register();
             } else {
                 try {
-                    out.writeObject("disconnect");
-                    out.flush();
+                    if(out != null) {
+                        out.writeObject("disconnect");
+                        out.flush();
+                    }
                     disconnect();
                     init();
                     connect();
@@ -312,12 +321,17 @@ class NetworkUtils {
         connect();
     }
 
-    private static void setPort(String s) {
+    static void setPort(String s) {
         port = s;
     }
 
-    private static void setServerIP(String s) {
+    static void setServerIP(String s) {
         serverIP = s;
+    }
+
+    static void setAnswerToNull()
+    {
+        answer= null;
     }
 
     //check internet connection
