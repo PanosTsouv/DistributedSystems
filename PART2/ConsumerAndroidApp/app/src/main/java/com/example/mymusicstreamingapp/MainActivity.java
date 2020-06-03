@@ -3,6 +3,7 @@ package com.example.mymusicstreamingapp;
 import Utils.ArtistName;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
@@ -20,12 +21,13 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.loader.app.LoaderManager;
 import androidx.loader.content.Loader;
+import androidx.preference.PreferenceManager;
 
 import java.io.File;
 import java.util.ArrayList;
 
 
-public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<ArrayList<ArtistName>>{
+public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<ArrayList<ArtistName>>, SharedPreferences.OnSharedPreferenceChangeListener {
 
     /**
      * Constant value for the artist loader ID. We can choose any integer.
@@ -55,12 +57,12 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
      * DEBUG KEYS VARIABLES
      */
     private static final String LOG_TAG = MainActivity.class.getName();
-    static final boolean ARTIST_LOADER_DEBUG = false;
+    static final boolean ARTIST_LOADER_DEBUG = true;
 
     /**
      * LIFECYCLE DEBUG
      */
-    static final boolean LIFECYCLE_DEBUG = false;
+    static final boolean LIFECYCLE_DEBUG = true;
 
     /**
      * Grid View initialization
@@ -70,7 +72,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     private ArtistNameAdapter mAdapter;
 
     LoaderManager mLoaderManager;
-
 
     private ArrayList<String> mConsumerInfo = new ArrayList<>();
 
@@ -91,6 +92,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         mConsumerInfo.add("123456789");
         mConsumerInfo.add("true");
         mConsumerInfo.add("Panostsouv95@gmail.com");
+        defaultSetup();
 
         // Find a reference to the GridView in the layout
         GridView artistListView = findViewById(R.id.artist_list);
@@ -98,6 +100,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         mEmptyStateTextView = findViewById(R.id.empty_view);
         artistListView.setEmptyView(mEmptyStateTextView);
 
+        if(checkDefaultValues()){return;}
         //create a new custom adapter
         mAdapter = new ArtistNameAdapter(this, 0, new ArrayList<>());
 
@@ -178,6 +181,48 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         mAdapter.clear();
     }
 
+    private void defaultSetup()
+    {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        mConsumerInfo.set(0,sharedPreferences.getString(getString(R.string.pref_client_name_key), getString(R.string.pref_client_name_default_value)));
+        mConsumerInfo.set(1,sharedPreferences.getString(getString(R.string.pref_client_pass_key), getString(R.string.pref_client_pass_default_value)));
+        mConsumerInfo.set(3,sharedPreferences.getString(getString(R.string.pref_client_email_key), getString(R.string.pref_client_email_default_value)));
+        NetworkUtils.setServerIP(sharedPreferences.getString(getString(R.string.pref_random_ip_key), getString(R.string.pref_random_ip_default_value)));
+        NetworkUtils.setPort(sharedPreferences.getString(getString(R.string.pref_random_port_key), getString(R.string.pref_random_port_default_value)));
+        sharedPreferences.registerOnSharedPreferenceChangeListener(this);
+        Log.d(LOG_TAG,mConsumerInfo.toString());
+    }
+
+    private boolean checkDefaultValues()
+    {
+        if (mConsumerInfo.get(0).equals(getString(R.string.pref_client_name_default_value)) ||
+                mConsumerInfo.get(1).equals(getString(R.string.pref_client_pass_default_value)) ||
+                mConsumerInfo.get(3).equals(getString(R.string.pref_client_email_default_value)))
+        {
+            View loadingIndicator = findViewById(R.id.loading_spinner);
+            loadingIndicator.setVisibility(View.GONE);
+            mEmptyStateTextView.setText(R.string.change_default_values_message);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key) {
+        if (key.equals(getString(R.string.pref_client_name_key))) {
+            mConsumerInfo.set(0, sharedPreferences.getString(key, getResources().getString(R.string.pref_client_name_default_value)));
+        }else if(key.equals(getString(R.string.pref_client_pass_key))){
+            mConsumerInfo.set(1, sharedPreferences.getString(key, getResources().getString(R.string.pref_client_pass_default_value)));
+        }else if(key.equals(getString(R.string.pref_client_email_key))){
+            mConsumerInfo.set(3, sharedPreferences.getString(key, getResources().getString(R.string.pref_client_email_default_value)));
+        }else if(key.equals(getString(R.string.pref_random_ip_key))){
+            NetworkUtils.setServerIP(sharedPreferences.getString(key, getResources().getString(R.string.pref_random_ip_default_value)));
+        }else if(key.equals(getString(R.string.pref_random_port_key))){
+            NetworkUtils.setPort(sharedPreferences.getString(key, getResources().getString(R.string.pref_random_port_default_value)));
+        }
+        Log.d(LOG_TAG,mConsumerInfo.toString());
+    }
+
 
     /**
      * @param menu : initialize a custom menu
@@ -218,11 +263,20 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         {
             UnregisterTask myTask = new UnregisterTask();
             myTask.execute(false);
-            mAdapter.clear();
+            if (mAdapter != null) {
+                mAdapter.clear();
+            }
             finish();
             overridePendingTransition( 0, 0);
             startActivity(getIntent());
             overridePendingTransition( 0, 0);
+            return true;
+        }
+        if (id == R.id.preferences)
+        {
+            NetworkUtils.setAnswerToNull();
+            Intent startSettingsActivity = new Intent(MainActivity.this, SettingsActivity.class);
+            startActivity(startSettingsActivity);
             return true;
         }
         return super.onOptionsItemSelected(item);
@@ -260,5 +314,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     protected void onDestroy() {
         if(LIFECYCLE_DEBUG) Log.d(LOG_TAG, "Call onDestroy method");
         super.onDestroy();
+        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(this);
     }
 }
