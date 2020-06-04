@@ -226,7 +226,7 @@ public class ActionsForClients extends Thread {
         //     out.writeObject("You can disconnect");
         //     return;
         // };
-        while(!answerForUnregister.equals("I want to unregister"))
+        while(!answerForUnregister.equals("I want to unregister") && !userSongName.equals("I want to unregister"))
         {
             if(count>0) userSongName = answerForUnregister;
             if(brokerServer.getSongsInCache().get(userSongName) != null)
@@ -254,6 +254,7 @@ public class ActionsForClients extends Thread {
                 }.start();
                 for (int i = 0; i < chunksSize; i++) {
                     tempval = (Value) brokerClient.getInAsClient().readObject();
+                    System.out.println("Server part of broker :: Receive chunk " + i + " of song " + userSongName);
                     brokerServer.getSongsInCache().get(userSongName)[i] = tempval;
                 }
                 brokerClient.disconnect();
