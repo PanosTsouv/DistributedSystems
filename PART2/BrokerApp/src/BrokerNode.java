@@ -1,4 +1,6 @@
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigInteger;
@@ -7,12 +9,12 @@ import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketException;
+import java.net.URL;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Enumeration;
 import java.util.HashMap;
 
@@ -29,13 +31,19 @@ public class BrokerNode implements Broker {
     private int numberOfBrokers;
     private ServerSocket providerSocket = null;
     private Socket connection = null;
+    private String displayNameOfConnectionInterface;
 
-    //atributes of broker as client
+    //attributes of broker as client
     private String serverIP;
     private String port;
     private Socket connectionAsClient = null;
     private ObjectInputStream inAsClient = null;
     private ObjectOutputStream outAsClient = null;
+
+    //publicConnectionattribute
+    private String publicOwnInternetIP;
+    private String publicOwnInternetPort;
+    private boolean isPublicConnectionEstablished;
 
     private ArrayList<String> attributes = new ArrayList<>();
     private HashMap<ArtistName, String> artistToBrokers = new HashMap<>();
@@ -45,10 +53,42 @@ public class BrokerNode implements Broker {
     public BrokerNode(){}
 
     //constructor initialize server attributes and create a list with them
-    public BrokerNode(String ownPort, String brokerID, int numberOfBrokers) {
+    public BrokerNode(String ownPort, String brokerID, int numberOfBrokers, String publicOwnInternetPort, String isPublicConnectionEstablished, String displayNameOfConnectionInterface){
 
         this.brokerID = brokerID;
         this.ownPort = ownPort;
+        this.displayNameOfConnectionInterface = displayNameOfConnectionInterface;
+        if(isPublicConnectionEstablished.equals("true"))
+        {
+            this.isPublicConnectionEstablished = true;
+        }
+
+        getOwnIP();
+        
+        this.numberOfBrokers = numberOfBrokers;
+        calculateKeys();
+
+        attributes.add(this.brokerID);
+        attributes.add(this.ownPort);
+        attributes.add(this.ownServerIP);
+        attributes.add(this.hashBroker);
+        System.out.println("Broker " + this.brokerID + " BrokerIp: " + attributes.get(2) + " Port: " + attributes.get(1) + " ServerHash: " + this.hashBroker);
+        if(this.isPublicConnectionEstablished)
+        {
+            this.publicOwnInternetPort = publicOwnInternetPort;
+            getPublicIP();
+            if(!this.publicOwnInternetIP.equals(this.ownServerIP))
+            {
+                attributes.set(1, this.publicOwnInternetPort);
+                attributes.set(2, this.publicOwnInternetIP);
+                System.out.println("Broker " + this.brokerID + " PublicBrokerIp: " + attributes.get(2) + " PublicPort: " + attributes.get(1) + " ServerHash: " + this.hashBroker + "\n");
+            }
+        }
+        brokersInfo.add(attributes);
+    }
+
+    private void getOwnIP()
+    {
         Enumeration<NetworkInterface> nets = null;
         try {
             nets = NetworkInterface.getNetworkInterfaces();
@@ -57,7 +97,7 @@ public class BrokerNode implements Broker {
         }
         for (NetworkInterface netint : Collections.list(nets))
         {
-            if (netint.getName().equals("eth1") && netint.getInterfaceAddresses().size() > 0)
+            if (netint.getDisplayName().equals(this.displayNameOfConnectionInterface) && netint.getInterfaceAddresses().size() > 0)
             {
                 this.ownServerIP = netint.getInterfaceAddresses().get(0).getAddress().getHostAddress();
                 break;
@@ -74,15 +114,24 @@ public class BrokerNode implements Broker {
 				}
 			}
         }
-        this.numberOfBrokers = numberOfBrokers;
-        calculateKeys();
+    }
 
-        attributes.add(this.brokerID);
-        attributes.add(this.ownPort);
-        attributes.add(this.ownServerIP);
-        attributes.add(this.hashBroker);
-        brokersInfo.add(attributes);
-        System.out.println("Broker " + this.brokerID + " BrokerIp: " + this.ownServerIP + " Port: " + this.ownPort + " ServerHash: " + this.hashBroker + "\n");
+    private void getPublicIP()
+    {
+        try
+        { 
+            URL url_name = new URL("http://bot.whatismyipaddress.com"); 
+  
+            BufferedReader sc = new BufferedReader(new InputStreamReader(url_name.openStream())); 
+  
+            // reads system IPAddress 
+            this.publicOwnInternetIP = sc.readLine().trim(); 
+        } 
+        catch (Exception e) 
+        {
+            e.printStackTrace();
+            this.publicOwnInternetIP = this.ownServerIP; 
+        }
     }
 
     
@@ -228,7 +277,7 @@ public class BrokerNode implements Broker {
         BigInteger sha1 = null;
         try {
             MessageDigest msdDigest = MessageDigest.getInstance("MD5");
-            byte[] messageDigest = msdDigest.digest((this.serverIP + this.ownPort).getBytes());
+            byte[] messageDigest = msdDigest.digest((this.ownServerIP + this.ownPort).getBytes());
             sha1 = new BigInteger(1, messageDigest);
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -245,26 +294,20 @@ public class BrokerNode implements Broker {
         {
             outConsumer.writeObject(getSongsInCache().get(songName).length);
             outConsumer.flush();
-            System.out.println("We send number of chunks");
             int count = 0;
             while (count != getSongsInCache().get(songName).length)
             {
-                long startBackgroundJobTime = new Date().getTime();
                 while(getSongsInCache().get(songName)[count] == null)
                 {
-                    long startWhileTime = new Date().getTime();
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
-                    long endWhileTime = new Date().getTime();
-                    System.out.println("ELAPSE WHILE TIME: " + (endWhileTime - startWhileTime));
                 }
                 outConsumer.writeObject(getSongsInCache().get(songName)[count]);
+                System.out.println("Server part of broker :: Send chunk " + count + " of song " + songName);
                 count++;
-                long endBackgroundJobTime = new Date().getTime();
-                System.out.println("ELAPSE BACKGROUND JOB TIME: " + (endBackgroundJobTime - startBackgroundJobTime));
             }
             outConsumer.flush();
         }
