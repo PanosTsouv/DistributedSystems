@@ -1,7 +1,6 @@
 import java.io.*;
 import java.net.*;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 
 import com.mpatric.mp3agic.*;
@@ -62,8 +61,11 @@ public class BrokerHandlerThread extends Thread {
                         + " chunks created");
 
                 out.writeObject(chunks.size());
+                int count = 0;
                 while (!chunks.isEmpty()) {
                     this.publisher.push(userArtist, chunks.remove(0), out);
+                    System.out.println("Server part of publisher :: Publisher push chunk " + count + " of song " + userSong);
+                    count++;
                 }
                 System.out.println("Server part of publisher :: Publisher sent all chunks");
             } else if (answerCategory.equals("List")) {
