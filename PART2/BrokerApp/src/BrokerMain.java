@@ -8,7 +8,7 @@ public class BrokerMain
 {
     public static void main(String[] args) 
     {
-        BrokerNode broker = new BrokerNode(args[0], args[1], Integer.parseInt(args[2]));
+        BrokerNode broker = new BrokerNode(args[0], args[1], Integer.parseInt(args[2]), args[3], args[4], args[5]);
         new Thread()
         {
             public void run()
