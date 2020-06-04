@@ -8,7 +8,7 @@ public class PublisherMain{
     public static void main(String[] args)
     {
         String path = System.getProperty("user.dir") + "/dataset1";
-        PublisherNode PB = new PublisherNode(args[0], args[1], args[2], args[3], path, args[4].charAt(0), args[5].charAt(0));
+        PublisherNode PB = new PublisherNode(args[0], args[1], args[2], args[3], args[4], args[5], path, args[6].charAt(0), args[7].charAt(0), args[8]);
 
         new Thread(){
             public void run()
