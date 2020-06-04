@@ -16,8 +16,8 @@
             "request": "launch",
             "mainClass": "PublisherMain",
             "projectName": "PublisherApp",
-            "args": ["1","4500","4321","192.168.1.2","A","J"]
-            //"args": ["2","4501","4321","192.168.1.2","K","Z"]
+            //"args": ["1","4500","1100","true","1000","2.86.27.58","A","J","Intel(R) Ethernet Connection I217-V"]
+            "args": ["2","4501","1101","true","1000","2.86.27.58","K","Z","Intel(R) Ethernet Connection I217-V"]
         }
     ]
 }
