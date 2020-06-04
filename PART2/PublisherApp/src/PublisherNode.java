@@ -37,6 +37,12 @@ public class PublisherNode implements Publisher{
     private String path;
     private char start;
     private char end;
+    private String displayNameOfConnectionInterface;
+
+    //publicConnectionattribute
+    private String publicOwnInternetIP;
+    private String publicOwnInternetPort;
+    private boolean isPublicConnectionEstablished;
 
     private ArrayList<ArrayList<String>> songsInfo;
     private HashMap<String, String> uniqueArtistToBroker = new HashMap<>();
@@ -47,28 +53,85 @@ public class PublisherNode implements Publisher{
     private ObjectInputStream in = null;
 
     //constructor + initialize attributes list which we send to clients
-    public PublisherNode(String publisherID, String ownPort, String port, String serverIP, String path, char start, char end)
+    public PublisherNode(String publisherID, String ownPort, String publicOwnInternetPort, String isPublicConnectionEstablished, String port, String serverIP, String path, char start, char end, String displayNameOfConnectionInterface)
     {
         this.publisherID = publisherID;
         this.port = port;
+        this.serverIP = serverIP;
         this.path = path;
         this.start = start;
         this.end = end;
-        try
+        this.displayNameOfConnectionInterface = displayNameOfConnectionInterface;
+        if(isPublicConnectionEstablished.equals("true"))
         {
-            this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
+            this.isPublicConnectionEstablished = true;
         }
-        catch (UnknownHostException e)
-        {
-            e.printStackTrace();
-        }
+        getOwnIP();
         this.ownPort = ownPort;
-        System.out.println("Publisher " + this.publisherID + " PublisherIp: " + this.ownServerIP + " Port " + this.ownPort + "\n");
-        this.serverIP = serverIP;
+
         attributes.add(this.publisherID);
         attributes.add(this.ownServerIP);
         attributes.add(this.ownPort);
         attributes.add(this.publisherConnectFirstTime);
+        System.out.println("Publisher " + this.publisherID + " PublisherIp: " + attributes.get(1) + " Port " + attributes.get(2));
+        if(this.isPublicConnectionEstablished)
+        {
+            this.publicOwnInternetPort = publicOwnInternetPort;
+            getPublicIP();
+            if(!this.publicOwnInternetIP.equals(this.ownServerIP))
+            {
+                attributes.set(1, this.publicOwnInternetIP);
+                attributes.set(2, this.publicOwnInternetPort);
+                System.out.println("Publisher " + this.publisherID + " PublicPublisherIp: " + attributes.get(1) + " PublicPort " + attributes.get(2) + "\n");
+            }
+        }
+    }
+
+    private void getOwnIP()
+    {
+        Enumeration<NetworkInterface> nets = null;
+        try {
+            nets = NetworkInterface.getNetworkInterfaces();
+        } catch (SocketException e2) {
+            e2.printStackTrace();
+        }
+        for (NetworkInterface netint : Collections.list(nets))
+        {
+            if (netint.getDisplayName().equals(this.displayNameOfConnectionInterface) && netint.getInterfaceAddresses().size() > 0)
+            {
+                this.ownServerIP = netint.getInterfaceAddresses().get(0).getAddress().getHostAddress();
+                break;
+            }
+			else
+			{
+				try 
+				{
+					this.ownServerIP = InetAddress.getLocalHost().getHostAddress();
+				} 
+				catch (UnknownHostException e) 
+				{
+					e.printStackTrace();
+				}
+			}
+        }
+    }
+
+    private void getPublicIP()
+    {
+        try
+        { 
+            URL url_name = new URL("http://bot.whatismyipaddress.com"); 
+  
+            BufferedReader sc = new BufferedReader(new InputStreamReader(url_name.openStream())); 
+  
+            // reads system IPAddress 
+            this.publicOwnInternetIP = sc.readLine().trim(); 
+        } 
+        catch (Exception e) 
+        {
+            e.printStackTrace();
+            this.publicOwnInternetIP = this.ownServerIP; 
+        }
     }
 
     @Override
